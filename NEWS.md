@@ -1,3 +1,18 @@
+# spectralDEMATEL 0.3.1
+
+* A `skipped` check no longer carries a value or a list of factors. Two call
+  sites got this wrong independently -- `connectivity_margin` reported the
+  factors hanging on a single link even when the graph was already
+  disconnected, and `nonnegative` reported a count of zero on a matrix whose
+  entries had never been examined. A number or a list of names beside a verdict
+  that was never reached reads as evidence for it. The invariant is now
+  enforced in one place, so no future call site can reintroduce it. Found while
+  wiring the checks into the Shiny application.
+
+* Check reasons read correctly when the count is one: "1 factor is" rather
+  than "1 factors are". The count is frequently 1, since a single blank row is
+  the commonest way to fail a check.
+
 # spectralDEMATEL 0.3.0
 
 * A vignette, `vignette("diagnosing-a-system")`, working through a full

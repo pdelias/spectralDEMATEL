@@ -127,9 +127,10 @@ assumption_checks <- function(A, type = c("A", "T")) {
   ok_finite <- nrow(bad_finite) == 0L
   add("finite", if (ok_finite) "pass" else "fail",
       if (ok_finite) "Every entry is a finite number."
-      else sprintf(paste("%d entries are missing or infinite. Blank cells in a",
+      else sprintf(paste("%s missing or infinite. Blank cells in a",
                          "spreadsheet read as missing; an unrated pair should",
-                         "be entered as 0."), nrow(bad_finite)),
+                         "be entered as 0."),
+                   count_phrase(nrow(bad_finite), "entry", "is", "are")),
       value = nrow(bad_finite),
       factors = sort(unique(as.integer(bad_finite[, "row"]))))
 
@@ -139,11 +140,11 @@ assumption_checks <- function(A, type = c("A", "T")) {
   add("nonnegative", if (!ok_finite) "skipped" else if (ok_neg) "pass" else "fail",
       if (!ok_finite) "Not evaluated: the matrix contains missing or infinite entries."
       else if (ok_neg) "Every entry is zero or positive."
-      else sprintf(paste("%d entries are negative. DEMATEL ratings measure the",
+      else sprintf(paste("%s negative. DEMATEL ratings measure the",
                          "strength of an influence, not its direction, so a",
                          "negative entry usually means a sign convention from",
                          "another method has been carried over."),
-                   nrow(bad_neg)),
+                   count_phrase(nrow(bad_neg), "entry", "is", "are")),
       value = nrow(bad_neg),
       factors = sort(unique(as.integer(bad_neg[, "row"]))))
 
@@ -164,11 +165,11 @@ assumption_checks <- function(A, type = c("A", "T")) {
   add("zero_diagonal", if (length(diag_nonzero) == 0L) "pass" else "warn",
       if (length(diag_nonzero) == 0L)
         "The diagonal is zero, as the convention expects."
-      else sprintf(paste("%d factors carry a non-zero self-influence. This is",
+      else sprintf(paste("%s a non-zero self-influence. This is",
                          "admissible and the diagnostics are computed as usual,",
                          "but self-influence inflates coupling, so the value is",
                          "not comparable with studies that set the diagonal to",
-                         "zero."), length(diag_nonzero)),
+                         "zero."), count_phrase(length(diag_nonzero), "factor", "carries", "carry")),
       value = length(diag_nonzero),
       factors = as.integer(diag_nonzero))
 
@@ -178,12 +179,12 @@ assumption_checks <- function(A, type = c("A", "T")) {
   add("strong_connectivity", if (connected) "pass" else "fail",
       if (connected)
         "Every factor can reach every other factor, so assumption A2 holds."
-      else sprintf(paste("%d factors are cut off from the main body of the",
+      else sprintf(paste("%s cut off from the main body of the",
                          "system, so assumption A2 fails and the entry profile",
                          "is no longer unique. This is usually a coding slip in",
                          "one row rather than a property of the system: check",
                          "whether those factors were left blank."),
-                   length(stranded)),
+                   count_phrase(length(stranded), "factor", "is", "are")),
       value = length(stranded),
       factors = as.integer(stranded))
 
@@ -195,11 +196,13 @@ assumption_checks <- function(A, type = c("A", "T")) {
         "Not evaluated: the influence graph is already disconnected."
       else if (length(fragile) == 0L)
         "No factor depends on a single link, so connectivity is not fragile."
-      else sprintf(paste("%d factors hang on a single incoming or outgoing",
+      else sprintf(paste("%s on a single incoming or outgoing",
                          "link. Strong connectivity holds, but removing one",
                          "rating would break it, so the diagnosis is less",
                          "robust than a denser matrix of the same size."),
-                   length(fragile)),
+                   count_phrase(length(fragile), "factor", "hangs", "hang")),
+      # Passed unconditionally: check_row() drops both when the verdict is
+      # skipped, which is where that invariant is enforced.
       value = length(fragile),
       factors = as.integer(fragile))
 
@@ -257,10 +260,32 @@ assumption_checks <- function(A, type = c("A", "T")) {
 
 # ---- internals -------------------------------------------------------------
 
+#' "1 factor is" rather than "1 factors are".
+#'
+#' These strings are read by users, and the counts they interpolate are
+#' frequently 1 -- a single blank row is the commonest way to fail a check.
+#' @noRd
+count_phrase <- function(n, noun, verb_singular, verb_plural) {
+  sprintf("%d %s%s %s", n, noun, if (n == 1) "" else "s",
+          if (n == 1) verb_singular else verb_plural)
+}
+
 #' One row of the checks table.
+#'
+#' Enforces the invariant that a `skipped` check carries neither a value nor
+#' factors. Two call sites got this wrong independently -- one reported the
+#' factors hanging on a single link when the graph was already disconnected,
+#' the other reported a count of zero negative entries on a matrix whose
+#' entries had never been examined. A number or a list of names beside a
+#' verdict that was never reached reads as evidence for it. Enforcing it here
+#' means no future call site can reintroduce the problem.
 #' @noRd
 check_row <- function(check, verdict, reason, value = NA_real_,
                       factors = integer(0)) {
+  if (identical(verdict, "skipped")) {
+    value <- NA_real_
+    factors <- integer(0)
+  }
   list(check = check, verdict = verdict, reason = reason,
        value = as.numeric(value), factors = as.integer(factors))
 }

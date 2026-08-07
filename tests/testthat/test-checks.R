@@ -123,6 +123,26 @@ test_that("two separate components name one side, not both", {
   expect_true(setequal(stranded, c(3L, 4L)) || setequal(stranded, c(1L, 2L)))
 })
 
+test_that("a skipped check carries no value and no factors", {
+  # Found in the application: connectivity_margin was reporting the factors
+  # hanging on a single link even when the graph was already disconnected and
+  # the check had never run. Names beside a verdict that was not reached read
+  # as evidence for it.
+  inputs <- list(worked_matrices$resilience_capabilities,
+                 block_diagonal,
+                 matrix(1:6, 2, 3),
+                 matrix(2, 4, 4),
+                 matrix(c(0, NA, 1, 0), 2, 2))
+
+  for (A in inputs) {
+    ck <- assumption_checks(A)
+    skipped <- ck[ck$verdict == "skipped", ]
+    if (nrow(skipped) == 0L) next
+    expect_true(all(is.na(skipped$value)))
+    expect_true(all(lengths(skipped$factors) == 0L))
+  }
+})
+
 test_that("skipped propagates from the first structural failure onward", {
   ck <- assumption_checks(matrix(1:6, 2, 3))   # not square
 
@@ -206,4 +226,32 @@ test_that("reasons are written for a user, not a developer", {
     expect_false(any(grepl("NULL|NA_real_|stopifnot|\\bnrow\\b|list\\(", reasons)))
     expect_true(all(nchar(reasons) > 20))
   }
+})
+
+test_that("reasons read correctly when the count is one", {
+  # These strings are read by users and the count is frequently 1 -- a single
+  # blank row is the commonest way to fail a check. "1 factors are" is the
+  # first thing a user would see on their own matrix.
+  singular <- list(
+    matrix(c(0, NA, 1, 0), 2, 2),
+    matrix(c(0, -1, 1, 0), 2, 2),
+    matrix(c(0, 3, 3, 1, 3,
+             0, 0, 2, 0, 1,
+             0, 0, 0, 2, 0,
+             3, 1, 2, 0, 3,
+             4, 1, 2, 1, 0), 5, 5, byrow = TRUE)
+  )
+
+  for (A in singular) {
+    storage.mode(A) <- "double"
+    reasons <- assumption_checks(A)$reason
+    flagged <- reasons[grepl("^1 ", reasons)]
+    expect_gt(length(flagged), 0)
+    expect_false(any(grepl("^1 [a-z]+s ", flagged)))   # "1 factors", "1 entries"
+    expect_false(any(grepl("^1 [a-z]+ are ", flagged)))
+  }
+
+  # And the plural still reads as a plural.
+  plural <- assumption_checks(worked_matrices$resilience_capabilities)$reason
+  expect_true(any(grepl("^4 factors are cut off", plural)))
 })
