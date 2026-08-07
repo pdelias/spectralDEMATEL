@@ -38,11 +38,28 @@ test_that("a defective T is handled and gives the rational spectrum", {
   expect_equal(qr(dematel(defective)$D + 0.2 * diag(3))$rank, 2)
 
   d <- spectral_diagnostics(defective)
+
+  # The dominant eigenvalue is simple, so these are accurate to the last bit.
   expect_equal(d$mu_max,     0.4,     tolerance = 1e-12)  # mu = 0.4
   expect_equal(d$lambda_max, 2 / 3,   tolerance = 1e-12)  # 0.4 / 0.6
   expect_equal(d$multiplier, 5 / 3,   tolerance = 1e-12)  # 1 / 0.6
-  expect_equal(d$dominance,  0.25,    tolerance = 1e-12)  # (1/6) / (2/3)
   expect_false(d$indirect_dominant)
+
+  # Mode dominance is not, and the reason is the point of this fixture. A
+  # defective eigenvalue -- algebraic multiplicity 2, geometric multiplicity 1
+  # -- can only be computed to about sqrt(machine epsilon), roughly 1.5e-8. The
+  # repeated mu = -0.2 splits into a conjugate pair, and different LAPACK
+  # builds split it differently: this assertion at 1e-12 passed on macOS and
+  # failed on Linux. Asserting more precision than the mathematics allows is a
+  # test bug, not a platform bug.
+  eps <- sqrt(.Machine$double.eps)
+  expect_equal(d$dominance, 0.25, tolerance = eps)         # (1/6) / (2/3)
+
+  # And the split itself stays inside that bound, which is the property being
+  # relied on rather than merely tolerated.
+  mu <- eigen(dematel(defective)$D, only.values = TRUE)$values
+  repeated <- mu[order(Re(mu))][1:2]
+  expect_lt(max(Mod(repeated - (-0.2))), eps)
 })
 
 test_that("rank-one A gives mode dominance of exactly zero", {
