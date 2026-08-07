@@ -1,3 +1,18 @@
+# spectralDEMATEL 0.3.0
+
+* A vignette, `vignette("diagnosing-a-system")`, working through a full
+  diagnosis on the two published matrices the package ships. Every number in it
+  is computed at build time, so the documentation cannot drift from the code.
+
+  It doubles as an acceptance test. Three claims in the first draft did not
+  survive being checked against the output and were rewritten: the prominence
+  reversal is real but milder than stated on this matrix, and the surrogate
+  ensemble says something more interesting than expected — the observed
+  coupling sits above all 200 draws and mode dominance below all 200, while
+  hierarchy falls inside the ensemble on the low side.
+
+* No changes to any function or definition.
+
 # spectralDEMATEL 0.2.0
 
 The assumption checks become data the engine returns, and nothing in the package

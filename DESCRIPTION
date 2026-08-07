@@ -1,6 +1,6 @@
 Package: spectralDEMATEL
 Title: Spectral Diagnostics for DEMATEL Influence Matrices
-Version: 0.2.0
+Version: 0.3.0
 Authors@R:
     person("Pavlos", "Delias", email = "pavlos.delias@gmail.com",
            role = c("aut", "cre"),
@@ -24,6 +24,7 @@ Suggests:
     testthat (>= 3.0.0),
     knitr,
     rmarkdown
+VignetteBuilder: knitr
 Config/testthat/edition: 3
 Roxygen: list(markdown = TRUE)
 LazyData: true

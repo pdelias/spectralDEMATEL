@@ -1,0 +1,344 @@
+---
+title: "Diagnosing a DEMATEL system"
+output: rmarkdown::html_vignette
+vignette: >
+  %\VignetteIndexEntry{Diagnosing a DEMATEL system}
+  %\VignetteEngine{knitr::rmarkdown}
+  %\VignetteEncoding{UTF-8}
+---
+
+```{r, include = FALSE}
+knitr::opts_chunk$set(collapse = TRUE, comment = "#>")
+options(digits = 4)
+```
+
+Two DEMATEL models can have the same number of factors, the same rating scale
+and the same panel size, and still require opposite interventions. Which one you
+are holding is a property of the matrix's spectrum rather than of its subject
+matter, so **you cannot look up your intervention logic, you have to diagnose
+it.**
+
+This vignette works through that diagnosis on the two published matrices the
+package ships.
+
+```{r setup}
+library(spectralDEMATEL)
+
+fefo <- worked_matrices$fefo_stock_control          # 13 factors
+resl <- worked_matrices$resilience_capabilities     # 15 factors
+```
+
+## Is this matrix in scope?
+
+Before any number means anything, the matrix has to satisfy the conditions the
+diagnostics rest on. Every one of them comes back as data — nothing here stops,
+warns or prints.
+
+```{r}
+ck <- assumption_checks(fefo)
+ck[ck$verdict != "pass", c("check", "verdict", "value")]
+```
+
+One warning, and it is worth having. This matrix has a non-zero diagonal:
+thirteen factors carry a self-influence. That is admissible and everything is
+computed as usual, but self-influence inflates coupling, so the value is not
+comparable with a study that set its diagonal to zero.
+
+The second matrix is a harder case.
+
+```{r}
+ck2 <- assumption_checks(resl)
+ck2[ck2$verdict != "pass", c("check", "verdict", "value")]
+```
+
+Strong connectivity fails. A binary verdict would stop there; the point of
+returning the checks as data is that they can say **which factors**:
+
+```{r}
+stranded <- ck2$factors[ck2$check == "strong_connectivity"][[1]]
+stranded
+```
+
+The chain of cause is visible in the matrix itself. Row 14 is blank, so factor
+14 dispatches nothing. Column 7 is blank, so factor 7 receives nothing. Factor
+8's only source is 7, and factor 4's only sources are 7 and 8 — so neither can
+be reached from the rest of the system either.
+
+```{r}
+which(rowSums(resl) == 0)   # dispatches nothing
+which(colSums(resl) == 0)   # receives nothing
+```
+
+That is usually a coding slip in one row rather than a property of the system,
+which is exactly why naming the factors matters: a user is told where to look.
+
+The engine computes the diagnostics anyway. This is deliberate — the published
+study reports them, and an engine that refused would make the check
+unimplementable. But the numbers carry the verdict with them, and here they
+carry a visible mark of it:
+
+```{r}
+d_resl <- spectral_diagnostics(resl)
+
+round(d_resl$entry_points[stranded], 4)   # the top-ranked entry point is here
+round(d_resl$accumulation[stranded], 4)   # yet nothing accumulates at them
+```
+
+The highest-ranked entry point in the whole system is one of the four factors
+cut off from it, and the left eigenvector puts exactly zero weight on three of
+them. For a strongly connected matrix the entry profile is unique and strictly
+positive; when A2 fails it is neither, and a ranking read off it is describing
+something other than the system as a whole.
+
+### Why that is worth the trouble
+
+Here is the mechanism on a matrix small enough to read. Five factors, densely
+and unevenly connected:
+
+```{r}
+core <- matrix(c(0, 4, 3, 1, 1,
+                 4, 0, 3, 1, 1,
+                 2, 2, 0, 1, 1,
+                 1, 1, 1, 0, 1,
+                 1, 1, 1, 1, 0), 5, 5, byrow = TRUE)
+storage.mode(core) <- "double"
+
+d_core <- spectral_diagnostics(core)
+c(irreducible = is_irreducible(core),
+  coupling = round(d_core$mu_max, 3), hierarchy = round(d_core$hierarchy_sd, 3))
+```
+
+Coupling above 0.5 and hierarchy above 0.10: strongly coupled, with influence
+entering at a few factors.
+
+Now add a sixth factor that dispatches heavily to all five and receives nothing
+— an observer, a reporting layer, a context variable someone added late.
+
+```{r}
+observed <- rbind(cbind(core, 0), 0)
+observed[6, 1:5] <- 4
+
+d_obs <- spectral_diagnostics(observed)
+c(irreducible = is_irreducible(observed),
+  coupling = round(d_obs$mu_max, 3), hierarchy = round(d_obs$hierarchy_sd, 3))
+```
+
+Coupling has fallen from `r round(d_core$mu_max, 2)` to
+`r round(d_obs$mu_max, 2)`, crossing the 0.5 threshold, so the system reads as
+dampened where it was amplified. Nothing about the five original factors
+changed. What changed is the normalising constant: `dematel()` divides by the
+larger of the maximum row and column total, and factor 6's row is now the
+largest, so the whole normalised matrix shrank.
+
+```{r}
+c(s_core = dematel(core)$s, s_observed = dematel(observed)$s)
+```
+
+The check catches this. The verdict is not bureaucratic.
+
+## What kind of system is this?
+
+```{r}
+d_fefo <- spectral_diagnostics(fefo)
+
+data.frame(
+  row.names  = c("FEFO stock control", "Resilience capabilities"),
+  factors    = c(d_fefo$n, d_resl$n),
+  coupling   = c(d_fefo$mu_max, d_resl$mu_max),
+  multiplier = c(d_fefo$multiplier, d_resl$multiplier),
+  indirect   = c(d_fefo$indirect_dominant, d_resl$indirect_dominant),
+  dominance  = c(d_fefo$dominance, d_resl$dominance)
+)
+```
+
+The two are opposites. FEFO stock control is strongly coupled: total effects run
+`r round(d_fefo$multiplier, 1)` times the direct ones, so indirect propagation
+dominates and an intervention has to be appraised on total effects rather than
+on the ratings as entered. Its mode dominance of `r round(d_fefo$dominance, 3)`
+says one propagation pattern accounts for essentially all of the behaviour.
+
+Resilience capabilities barely amplifies at all: a multiplier of
+`r round(d_resl$multiplier, 2)` means indirect effects are a third of the direct
+ones. Direct effects are most of the story, and the ratings can be read close to
+face value.
+
+Coupling, the dominant eigenvalue and the multiplier are one quantity on three
+scales, which the package asserts rather than assumes:
+
+```{r}
+c(from_mu     = 1 / (1 - d_fefo$mu_max),
+  from_lambda = 1 + d_fefo$lambda_max,
+  reported    = d_fefo$multiplier)
+```
+
+## Reading hierarchy in the right direction
+
+Hierarchy has three readings and **they do not run the same way**.
+
+```{r}
+data.frame(
+  row.names   = c("FEFO stock control", "Resilience capabilities"),
+  sd          = c(d_fefo$hierarchy_sd,   d_resl$hierarchy_sd),
+  gini        = c(d_fefo$hierarchy_gini, d_resl$hierarchy_gini),
+  pr          = c(d_fefo$hierarchy_pr,   d_resl$hierarchy_pr)
+)
+```
+
+`hierarchy_sd` and `hierarchy_gini` are **high** when influence enters at a few
+factors. `hierarchy_pr` is **low**. Resilience capabilities is the more
+concentrated of the two on all three readings, which you can only see if you
+know that the third column runs backwards.
+
+Anything that displays one of these must say which reading it used and which way
+it runs. This project has inverted the direction once already, in code that had
+been reviewed, and the mistake produced entirely plausible output.
+`hierarchy_sd` is the reading behind every published corpus-level result.
+
+## Where do I intervene?
+
+The standard DEMATEL deliverable is prominence, the sum of a factor's row and
+column totals in the total-relation matrix. It adds two different roles
+together: how much a factor dispatches, and how much it absorbs. The left and
+right eigenvectors separate them.
+
+```{r}
+T_fefo <- dematel(fefo)$T
+prominence <- rowSums(T_fefo) + colSums(T_fefo)
+
+ranks <- data.frame(
+  factor       = seq_len(d_fefo$n),
+  prominence   = rank(-prominence),
+  entry        = rank(-d_fefo$entry_points),
+  accumulation = rank(-d_fefo$accumulation)
+)
+head(ranks[order(ranks$entry), ], 5)
+```
+
+The three rankings disagree, and the disagreements are the interesting part.
+
+Factor 4 is the **second strongest entry point and only seventh by prominence**.
+Factor 3 is third by entry and fifth by prominence. Both inject more influence
+than the standard deliverable credits them with.
+
+Factor 13 runs the other way: **second by prominence, first by accumulation,
+only fourth by entry**. Prominence adds dispatch to absorption, so a factor that
+absorbs heavily while dispatching moderately can outrank the factor actually
+driving the system. Pressure applied at 13 lands where effects already
+accumulate, which is close to the opposite of intervening.
+
+Only factor 5 tops all three, which is why a single blended score is
+persuasive right up to the point where it is wrong.
+
+### Which relationship, not which factor
+
+`sensitivity_matrix()` gives the derivative of the dominant eigenvalue in every
+off-diagonal entry, so the question moves from *which factor matters* to *which
+relationship, if strengthened or weakened, moves the system most.*
+
+```{r}
+s <- sensitivity_matrix(fefo)
+strongest <- which(s$total == max(s$total, na.rm = TRUE), arr.ind = TRUE)
+strongest
+```
+
+**Never read that ranking without the condition number.**
+
+```{r}
+d_fefo$ev_condition
+```
+
+`ev_condition` is at least 1 by construction and bounds how far a first-order
+estimate can be trusted. At `r round(d_fefo$ev_condition, 2)` these derivatives
+can be read at face value; a value in the tens means the derivative is locally
+uninformative, and `assumption_checks()` raises a warning verdict past 5.
+
+The derivative is signed, and some entries are negative:
+
+```{r}
+sum(s$total < 0, na.rm = TRUE)
+```
+
+Strengthening one of those *lowers* coupling — the lever for a system someone
+wants to calm rather than drive, which is the usual situation in risk work. The
+reason is not mysterious, and the function separates it out:
+
+```{r}
+neg <- which(s$total < 0, arr.ind = TRUE)[1, ]
+c(local         = s$local[neg[1], neg[2]],
+  normalization = s$normalization[neg[1], neg[2]],
+  total         = s$total[neg[1], neg[2]])
+```
+
+The local effect is always an amplification. The normalisation effect is never
+one, and it is non-zero only in the row or column that currently sets the
+normalising constant. Where the second outweighs the first, raising an influence
+rating lowers the dominant eigenvalue. Shown as a single total, that reads as a
+bug; shown as two components, it is a mechanism.
+
+## How much should I trust that reading?
+
+A diagnosis is worth less if the same numbers would arise from the rating
+distribution alone. `surrogate_ensemble()` shuffles the off-diagonal entries,
+holding the number of factors, the density and the exact multiset of values
+fixed, and recomputes.
+
+```{r}
+ens <- surrogate_ensemble(fefo, B = 200, seed = 42)
+
+c(observed = d_fefo$hierarchy_sd,
+  surrogate_median = median(ens$hierarchy_sd),
+  share_at_least_observed = mean(ens$hierarchy_sd >= d_fefo$hierarchy_sd))
+```
+
+Read that carefully, because it does not say what a null test usually says. The
+observed hierarchy is **lower** than the surrogate median: shuffling this
+matrix's own ratings at random produces a *more* concentrated entry profile than
+the matrix actually has, about
+`r round(100 * mean(ens$hierarchy_sd >= d_fefo$hierarchy_sd))`% of the time. The
+diffuseness of this system is not an artefact of its rating distribution — it is
+structure the analyst built, and it survives the comparison.
+
+The same ensemble answers the question for coupling and dominance, and there the
+verdict is sharper still:
+
+```{r}
+data.frame(
+  row.names = c("coupling", "dominance", "hierarchy_sd"),
+  observed  = c(d_fefo$mu_max, d_fefo$dominance, d_fefo$hierarchy_sd),
+  surrogate_min = c(min(ens$mu_max), min(ens$dominance), min(ens$hierarchy_sd)),
+  surrogate_max = c(max(ens$mu_max), max(ens$dominance), max(ens$hierarchy_sd))
+)
+```
+
+Coupling sits **above every one of the 200 surrogates** and mode dominance
+**below every one of them**. Shuffling this matrix's ratings cannot reproduce
+either: the system is more strongly coupled, and more completely governed by a
+single propagation mode, than its own entry distribution can account for. Only
+hierarchy falls inside the ensemble, and on the low side.
+
+That is the comparison the source paper could not run across its corpus, because
+the precomputed spectral file holds no raw matrices. A user of this package has
+their own matrix, so they can.
+
+The seed is exposed so a figure can be reproduced. This is the only function
+here that is not instant — each draw is an eigendecomposition plus a
+connectivity check — so run it on demand rather than eagerly, and lower `B` if a
+user is waiting.
+
+## Showing your work
+
+Every diagnosis records the version of the engine that produced it.
+
+```{r}
+d_fefo$engine_version
+```
+
+A metric definition has moved in this project's history before. When one moves
+again, a diagnosis recorded with its version stays interpretable rather than
+silently meaning something new. The checks travel in the same object for the
+same reason: numbers whose validity depends on something the caller was told
+separately are numbers whose validity will eventually be lost.
+
+```{r}
+names(d_fefo)
+```

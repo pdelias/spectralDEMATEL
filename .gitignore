@@ -7,3 +7,5 @@
 *.tar.gz
 *.tgz
 docs/
+/doc/
+/Meta/
