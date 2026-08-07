@@ -3,7 +3,8 @@ Title: Spectral Diagnostics for DEMATEL Influence Matrices
 Version: 0.1.0
 Authors@R:
     person("Pavlos", "Delias", email = "pavlos.delias@gmail.com",
-           role = c("aut", "cre"))
+           role = c("aut", "cre"),
+           comment = c(ORCID = "0000-0002-3722-2307"))
 Description: Computes the spectral diagnostics of a DEMATEL influence
     matrix: coupling and the total-effect multiplier, indirect and mode
     dominance, three readings of hierarchy, the entry and accumulation

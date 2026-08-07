@@ -67,11 +67,11 @@ Useful links:
 
 }
 \author{
-\strong{Maintainer}: Pavlos Delias \email{pavlos.delias@gmail.com}
+\strong{Maintainer}: Pavlos Delias \email{pavlos.delias@gmail.com} (\href{https://orcid.org/0000-0002-3722-2307}{ORCID})
 
 Authors:
 \itemize{
-  \item Pavlos Delias \email{pavlos.delias@gmail.com}
+  \item Pavlos Delias \email{pavlos.delias@gmail.com} (\href{https://orcid.org/0000-0002-3722-2307}{ORCID})
 }
 
 }
