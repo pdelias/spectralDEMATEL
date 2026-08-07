@@ -1,9 +1,9 @@
 # The reported diagnostic set for one system.
 #
-# Ported verbatim from R/spectral_dematel.R in the JDS paper repository. That
-# file is the single source of truth for every definition below and is verified
-# against two transcribed matrices to six decimal places. Do not restate a
-# formula here from memory or from an article's prose.
+# The arithmetic in diagnostics_core() is the paper's R/spectral_dematel.R
+# unchanged, and that file remains the single source of truth for every
+# definition. Do not restate a formula here from memory or from an article's
+# prose.
 
 #' Spectral diagnostics for one DEMATEL system
 #'
@@ -20,9 +20,14 @@
 #'   [dematel()]. `"T"` takes `A` as the total-relation matrix and recovers the
 #'   spectrum of `D` through the inverse Moebius map \eqn{\mu = \lambda/(1 +
 #'   \lambda)}.
+#' @param checks Whether to run [assumption_checks()] and attach the result.
+#'   Defaults to `TRUE` and should stay that way for anything a person will
+#'   read. `FALSE` returns the numbers alone, or `NULL` if they cannot be
+#'   computed, and exists for inner loops such as [surrogate_ensemble()].
 #'
-#' @return A named list, or `NULL` when `type = "A"` and [dematel()] found the
-#'   degenerate case. Components:
+#' @return With `checks = TRUE`, a named list that always has the same shape,
+#'   whatever was passed in. With `checks = FALSE`, the same list without
+#'   `checks` and `engine_version`, or `NULL` when the matrix is inadmissible.
 #'
 #'   \describe{
 #'     \item{`n`}{Number of factors.}
@@ -53,7 +58,21 @@
 #'       1 by construction. Bounds how far the first-order sensitivity estimates
 #'       of [sensitivity_matrix()] can be trusted; large values mean the
 #'       derivative is locally uninformative.}
+#'     \item{`checks`}{The [assumption_checks()] table for this matrix.}
+#'     \item{`engine_version`}{The package version that produced the diagnosis.}
 #'   }
+#'
+#' @section The numbers never travel without their checks:
+#' A diagnosis computed on a matrix that failed a check has to carry that fact
+#' with it, so `checks` is part of the returned object rather than something the
+#' caller was told separately and may not have kept. When the matrix is
+#' inadmissible every numeric field is `NA` and `checks` says why — the shape
+#' does not change, so a batch job over a hundred matrices gets a rectangular
+#' result and never a failure.
+#'
+#' `engine_version` is recorded because a metric definition has moved here
+#' before. When one moves again, old diagnoses must remain interpretable rather
+#' than silently mean something new.
 #'
 #' @section The three hierarchy readings run in different directions:
 #' `hierarchy_sd` and `hierarchy_gini` are high when influence enters at a few
@@ -74,7 +93,8 @@
 #' understates the ratio nearly everywhere — while passing every plausibility
 #' check.
 #'
-#' @seealso [sensitivity_matrix()] for where to intervene,
+#' @seealso [assumption_checks()] for the checks alone,
+#'   [sensitivity_matrix()] for where to intervene,
 #'   [surrogate_ensemble()] for a baseline to read these numbers against.
 #'
 #' @examples
@@ -84,14 +104,35 @@
 #' d <- spectral_diagnostics(A)
 #' d$mu_max
 #' d$multiplier
-#'
-#' # High coupling, so indirect effects dominate:
 #' d$indirect_dominant
 #'
+#' # Anything that failed, and why:
+#' subset(d$checks, verdict != "pass", c(check, verdict))
+#'
+#' # Inadmissible input keeps the shape and explains itself:
+#' bad <- spectral_diagnostics(matrix(2, 4, 4))
+#' bad$mu_max
+#' bad$checks$reason[bad$checks$check == "totals_vary"]
+#'
 #' @export
-spectral_diagnostics <- function(A, type = c("A", "T")) {
+spectral_diagnostics <- function(A, type = c("A", "T"), checks = TRUE) {
   type <- match.arg(type)
+  core <- diagnostics_core(A, type)
+
+  if (!checks) return(core)
+
+  ck <- assumption_checks(A, type = type)
+  if (is.null(core)) core <- na_diagnostics(A)
+  c(core, list(checks = ck, engine_version = engine_version()))
+}
+
+#' The arithmetic, ported unchanged from the paper's implementation.
+#' Returns NULL for any matrix it cannot process.
+#' @noRd
+diagnostics_core <- function(A, type) {
   if (type == "T") {
+    if (!is.matrix(A) || !is.numeric(A) || nrow(A) != ncol(A)) return(NULL)
+    if (!all(is.finite(A))) return(NULL)
     # Recover the spectrum of D from a published total relation matrix.
     eT <- eigen(A)
     lam <- eT$values
@@ -117,6 +158,7 @@ spectral_diagnostics <- function(A, type = c("A", "T")) {
     vT <- eigen(t(m$T))
     v <- abs(Re(vT$vectors[, which.max(Re(vT$values))]))
   }
+  if (sum(u^2) == 0 || sum(v^2) == 0) return(NULL)
   u <- u / sqrt(sum(u^2))
   v <- v / sqrt(sum(v^2))
   n <- length(u)
@@ -139,14 +181,39 @@ spectral_diagnostics <- function(A, type = c("A", "T")) {
   )
 }
 
+#' The same shape, with every number missing, for a matrix whose diagnostics
+#' cannot be computed. Keeps a batch result rectangular.
+#' @noRd
+na_diagnostics <- function(A) {
+  n <- if (is.matrix(A) && is.numeric(A) && nrow(A) == ncol(A)) nrow(A) else NA_integer_
+  vec <- if (is.na(n)) NA_real_ else rep(NA_real_, n)
+  list(
+    n                 = n,
+    mu_max            = NA_real_,
+    multiplier        = NA_real_,
+    lambda_max        = NA_real_,
+    indirect_dominant = NA,
+    dominance         = NA_real_,
+    hierarchy_sd      = NA_real_,
+    hierarchy_pr      = NA_real_,
+    hierarchy_gini    = NA_real_,
+    entry_points      = vec,
+    accumulation      = vec,
+    ev_condition      = NA_real_
+  )
+}
+
+#' The version stamped onto every diagnosis.
+#' @noRd
+engine_version <- function() {
+  as.character(utils::packageVersion("spectralDEMATEL"))
+}
+
 #' Gini coefficient of a non-negative vector
 #'
 #' The size-free concentration reading behind `hierarchy_gini`. Uses the
 #' rank-weighted form, which is \eqn{O(n \log n)} rather than the \eqn{O(n^2)}
 #' mean-absolute-difference form and agrees with it exactly.
-#'
-#' Internal: exposed through `spectral_diagnostics()$hierarchy_gini` rather than
-#' as part of the public interface.
 #'
 #' @param x A non-negative numeric vector.
 #' @return A scalar in \eqn{[0, 1)}. High means concentrated.

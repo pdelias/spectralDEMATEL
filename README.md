@@ -59,6 +59,28 @@ entries are the levers for calming a system rather than driving it. Read it
 alongside `d$ev_condition`, which bounds how far a first-order estimate can be
 trusted — **never one without the other**.
 
+Is the matrix even in scope? Every condition comes back as data — a verdict, a
+plain-language reason, and the factors at fault:
+
+```r
+subset(d$checks, verdict != "pass", c(check, verdict, value))
+#>                 check verdict value
+#> 6       zero_diagonal    warn    13
+
+ck <- assumption_checks(worked_matrices$resilience_capabilities)
+ck$factors[ck$check == "strong_connectivity"][[1]]
+#> [1]  4  7  8 14
+```
+
+Those four are stranded in this published matrix: row 14 is blank so factor 14
+dispatches nothing, column 7 is blank so factor 7 receives nothing, and factors
+8 and 4 are reachable only through 7. Naming them is the point — the check tells
+you which rows to look at, not just that something is wrong.
+
+Nothing here stops, warns or prints. An inadmissible matrix comes back with the
+same shape, every number `NA`, and a table saying why — so a batch job over a
+hundred matrices never changes shape and never fails.
+
 Is the structure real, or does it follow from the entry distribution alone?
 
 ```r

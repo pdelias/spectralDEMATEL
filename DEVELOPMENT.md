@@ -7,17 +7,18 @@ changing anything in `R/`.
 
 ```
 R/dematel.R            dematel(), is_irreducible()
-R/diagnostics.R        spectral_diagnostics(), gini() [internal]
+R/diagnostics.R        spectral_diagnostics(), diagnostics_core(), gini()
+R/checks.R             assumption_checks(), reachability(), the thresholds
 R/surrogate.R          surrogate_ensemble()
 R/sensitivity.R        sensitivity_matrix()
 R/data.R               documentation for the worked_matrices dataset
 data-raw/              the script that builds that dataset; not shipped
-tests/testthat/        six test files, described below
+tests/testthat/        seven test files, described below
 ```
 
-Five exported functions, one internal helper, one dataset. Base R and `stats`,
-nothing else, and that budget is not negotiable: a zero-dependency engine is the
-cheapest thing to compile to WebAssembly and the easiest to trust.
+Six exported functions, one dataset. Base R, `stats` and `utils`, nothing else,
+and that budget is not negotiable: a near-zero-dependency engine is the cheapest
+thing to compile to WebAssembly and the easiest to trust.
 
 ## The rule the package exists to keep
 
@@ -29,12 +30,13 @@ The four that get violated first: no plotting or colour, no
 can cause by pasting an odd matrix, and no file reading. Parsing belongs to
 whatever is calling this.
 
-Two of those are currently violated by inherited code — see *What was
-deliberately left alone* below.
+All four hold as of 0.2.0. `test-degenerate.R` is what keeps the third one true:
+it runs every inadmissible input anyone could paste through every exported
+function inside `expect_silent()`.
 
-## The six test files and what each is for
+## The seven test files and what each is for
 
-They are not six ways of doing the same thing. Each catches a different class
+They are not seven ways of doing the same thing. Each catches a different class
 of mistake, and dropping one leaves a real gap.
 
 | File | Catches |
@@ -43,8 +45,9 @@ of mistake, and dropping one leaves a real gap.
 | `test-known-answer.R` | a definition being *wrong* in a plausible-looking way |
 | `test-identities.R` | two quantities drifting apart from each other |
 | `test-sensitivity.R` | a closed form nobody differentiated numerically |
-| `test-degenerate.R` | inputs the mathematics cannot take |
+| `test-degenerate.R` | inputs the mathematics cannot take, and any condition raised for one |
 | `test-surrogate.R` | a baseline quietly becoming a different distribution |
+| `test-checks.R` | a ragged checks table, or `skipped` passing itself off as `pass` |
 
 **The principle underneath all of them:** a metric definition has exactly one
 implementation, and a test compares it against an *independent route* to the
@@ -76,25 +79,31 @@ ratio nearly everywhere while passing every plausibility check. It is wrong by a
 factor of three on one of the two worked matrices, and it is what the currently
 deployed application computes.
 
-## What was deliberately left alone
+## The checks, and the two things that matter about them
 
-The bodies of the five functions are a **verbatim** port. Two things in them
-contradict the rule above:
+`assumption_checks()` returns a fixed set of rows in a fixed order, whatever is
+passed in. Two properties are load-bearing and both are tested:
 
-1. `dematel()` calls `stopifnot()` for non-square, negative and non-matrix
-   inputs — all of which a user can produce by pasting.
-2. The uniform-totals case signals through `warning()` plus a `NULL` return.
-   A warning can only be caught and re-parsed, which is how message text becomes
-   an accidental API.
+**The table is rectangular.** A batch job stacks a hundred of them with `rbind`.
+`CHECK_IDS` is both the declared order and the order the function emits, and
+`skip_remaining()` indexes into it positionally — change one and you must change
+the other. `test-checks.R` asserts they agree.
 
-Both are pinned by tests marked `INHERITED:` in `test-degenerate.R`. They are
-step 3's job. Porting unchanged first means that when the assumption checks
-land, the diff shows exactly what changed and the baseline it changed from was
-tested.
+**`skipped` is not `pass`.** It means a prerequisite failed and the check was
+never evaluated. An interface that renders the two the same way tells a user
+their matrix is fine when nothing was tested. This is why there are four
+verdicts rather than the three originally planned: a rectangular table needs a
+row for a check that could not run.
 
-One more inherited rough edge, not yet pinned: `surrogate_ensemble()` redraws
-until it has `B` admissible shuffles, with no iteration cap. A matrix sparse
-enough that most shuffles disconnect the graph will spin.
+The two continuous thresholds live in `CHECK_THRESHOLDS`, with the measurements
+behind them in the comment above it. Neither is fitted. If either moves, say so
+in `NEWS.md` — an interface quotes them to users as recommendations.
+
+## Known rough edge
+
+`surrogate_ensemble()` redraws until it has `B` admissible shuffles, with no
+iteration cap. A matrix sparse enough that most shuffles disconnect the graph
+will spin. Inherited from the source implementation, not yet pinned by a test.
 
 ## Changing something
 

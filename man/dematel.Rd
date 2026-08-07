@@ -12,8 +12,7 @@ dematel(A)
 \value{
 A list with components \code{A} (the input), \code{s} (the normalising
 constant), \code{D} (the normalised matrix) and \code{T} (the total-relation
-matrix). Returns \code{NULL} invisibly, with a warning, when the input is
-degenerate.
+matrix). Returns \code{NULL} invisibly for any input it cannot process.
 }
 \description{
 Divides \code{A} by the larger of its maximum row sum and its maximum column sum
@@ -21,21 +20,24 @@ to obtain the normalised matrix \code{D}, then sums the influence propagated ove
 paths of every length to obtain the total-relation matrix
 \eqn{T = D(I - D)^{-1}}.
 }
+\section{Why it returns NULL instead of failing}{
+
+A user pasting an asymmetric matrix is not an exceptional condition, it is
+Tuesday. Every rejection here is silent and recoverable, and
+\code{\link[=assumption_checks]{assumption_checks()}} is where the reason lives — as data, in plain language,
+naming the factors at fault. Nothing in this package raises a condition for
+something a user can produce.
+
+\code{NULL} is returned when \code{A} is not a numeric matrix, is not square, holds a
+missing, infinite or negative entry, is entirely zero, or meets the
+degenerate case below.
+}
+
 \section{The degenerate case}{
 
 When every row and column total is the same, the spectral radius of \code{D} is
 exactly 1, \eqn{I - D} is singular and \code{T} is undefined (Lee et al. 2013).
-This is a property of the input rather than a mistake by the caller, and a
-uniform matrix is the commonest way to meet it. The function warns and
-returns \code{NULL}; every function here that calls it propagates the \code{NULL}
-rather than failing.
-}
-
-\section{Not yet an assumption check}{
-
-The \code{stopifnot()} below and the \code{warning()} above are inherited from the
-paper's implementation and are scheduled for replacement by returned
-verdicts. Do not build on them. See DEVELOPMENT.md.
+A matrix in which every pair was rated identically always meets it.
 }
 
 \examples{
@@ -46,4 +48,10 @@ m <- dematel(A)
 m$s
 round(m$T, 4)
 
+# Degenerate input returns NULL rather than failing:
+is.null(dematel(matrix(2, 4, 4)))
+
+}
+\seealso{
+\code{\link[=assumption_checks]{assumption_checks()}}, which reports why an input was rejected.
 }

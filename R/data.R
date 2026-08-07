@@ -19,10 +19,12 @@
 #'       detection.}
 #'     \item{`resilience_capabilities`}{15 factors, DOI
 #'       `10.1007/s12063-024-00470-8`. Weakly coupled (`mu_max` 0.351),
-#'       hierarchical. **Fails strong connectivity**: row 14 is all zeros, so
-#'       factor 14 dispatches nothing and assumption A2 does not hold. The
-#'       source paper reports its diagnostics regardless, which is why an
-#'       assumption check has to be a returned verdict rather than a refusal.}
+#'       hierarchical. **Fails strong connectivity**, stranding four factors:
+#'       row 14 is blank so factor 14 dispatches nothing, column 7 is blank so
+#'       factor 7 receives nothing, and factors 8 and 4 are reachable only
+#'       through 7. The source paper reports its diagnostics regardless, which
+#'       is why an assumption check has to be a returned verdict rather than a
+#'       refusal.}
 #'   }
 #'
 #' @source Transcribed in the JDS paper repository, `data/raw/matrices/`.

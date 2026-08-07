@@ -1,6 +1,6 @@
 Package: spectralDEMATEL
 Title: Spectral Diagnostics for DEMATEL Influence Matrices
-Version: 0.1.0
+Version: 0.2.0
 Authors@R:
     person("Pavlos", "Delias", email = "pavlos.delias@gmail.com",
            role = c("aut", "cre"),
@@ -18,7 +18,8 @@ Encoding: UTF-8
 Depends:
     R (>= 4.1.0)
 Imports:
-    stats
+    stats,
+    utils
 Suggests:
     testthat (>= 3.0.0),
     knitr,

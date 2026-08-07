@@ -1,10 +1,10 @@
 # The DEMATEL pipeline: normalisation, the total-relation matrix, and the
 # strong-connectivity check.
 #
-# Ported verbatim from R/spectral_dematel.R in the JDS paper repository, which
-# is the single source of truth for every metric definition here. The bodies
-# below are unchanged from that file. See ../reference/engine/ for the original
-# and DEVELOPMENT.md for what "verbatim" is protecting.
+# The arithmetic is the paper's R/spectral_dematel.R unchanged. What changed in
+# 0.2.0 is the failure path: these functions no longer stop() or warning() for
+# anything a user can cause by pasting an odd matrix. They return NULL, and
+# assumption_checks() explains why.
 
 #' Normalise a direct influence matrix and compute the total-relation matrix
 #'
@@ -17,21 +17,23 @@
 #'
 #' @return A list with components `A` (the input), `s` (the normalising
 #'   constant), `D` (the normalised matrix) and `T` (the total-relation
-#'   matrix). Returns `NULL` invisibly, with a warning, when the input is
-#'   degenerate.
+#'   matrix). Returns `NULL` invisibly for any input it cannot process.
+#'
+#' @section Why it returns NULL instead of failing:
+#' A user pasting an asymmetric matrix is not an exceptional condition, it is
+#' Tuesday. Every rejection here is silent and recoverable, and
+#' [assumption_checks()] is where the reason lives — as data, in plain language,
+#' naming the factors at fault. Nothing in this package raises a condition for
+#' something a user can produce.
+#'
+#' `NULL` is returned when `A` is not a numeric matrix, is not square, holds a
+#' missing, infinite or negative entry, is entirely zero, or meets the
+#' degenerate case below.
 #'
 #' @section The degenerate case:
 #' When every row and column total is the same, the spectral radius of `D` is
 #' exactly 1, \eqn{I - D} is singular and `T` is undefined (Lee et al. 2013).
-#' This is a property of the input rather than a mistake by the caller, and a
-#' uniform matrix is the commonest way to meet it. The function warns and
-#' returns `NULL`; every function here that calls it propagates the `NULL`
-#' rather than failing.
-#'
-#' @section Not yet an assumption check:
-#' The `stopifnot()` below and the `warning()` above are inherited from the
-#' paper's implementation and are scheduled for replacement by returned
-#' verdicts. Do not build on them. See DEVELOPMENT.md.
+#' A matrix in which every pair was rated identically always meets it.
 #'
 #' @examples
 #' A <- matrix(c(0, 2, 0,
@@ -41,17 +43,26 @@
 #' m$s
 #' round(m$T, 4)
 #'
+#' # Degenerate input returns NULL rather than failing:
+#' is.null(dematel(matrix(2, 4, 4)))
+#'
+#' @seealso [assumption_checks()], which reports why an input was rejected.
 #' @export
 dematel <- function(A) {
-  stopifnot(is.matrix(A), nrow(A) == ncol(A), all(A >= 0))
+  if (!is.matrix(A) || !is.numeric(A)) return(invisible(NULL))
+  if (nrow(A) != ncol(A) || nrow(A) < 1L) return(invisible(NULL))
+  if (!all(is.finite(A)) || any(A < 0)) return(invisible(NULL))
+
   s <- max(max(rowSums(A)), max(colSums(A)))
+  if (!is.finite(s) || s <= 0) return(invisible(NULL))
+
   D <- A / s
   mu_max <- max(Re(eigen(D, only.values = TRUE)$values))
-  if (mu_max >= 1 - 1e-12) {
-    warning("rho(D) = 1: uniform-totals pathology, T undefined (Lee et al. 2013).")
-    return(invisible(NULL))
-  }
-  T <- D %*% solve(diag(nrow(A)) - D)
+  if (!is.finite(mu_max) || mu_max >= 1 - 1e-12) return(invisible(NULL))
+
+  T <- tryCatch(D %*% solve(diag(nrow(A)) - D), error = function(e) NULL)
+  if (is.null(T) || !all(is.finite(T))) return(invisible(NULL))
+
   list(A = A, s = s, D = D, T = T)
 }
 
@@ -62,10 +73,6 @@ dematel <- function(A) {
 #' factor along some directed path. This is assumption A2, and it is what makes
 #' the dominant eigenvector unique and strictly positive.
 #'
-#' The test is performed by repeatedly squaring the boolean reachability matrix
-#' \eqn{(I + M)}, where `M` is the sign pattern of `A`. Costs \eqn{O(n^4)} in
-#' the worst case, which is free at the sizes DEMATEL models reach.
-#'
 #' @param A A square numeric matrix. Only the sign pattern is used.
 #'
 #' @return `TRUE` if the influence graph is strongly connected, `FALSE`
@@ -73,9 +80,9 @@ dematel <- function(A) {
 #'
 #' @section Failure is common and is not fatal:
 #' A single factor that dispatches nothing gives an all-zero row and fails the
-#' test. One of the two worked matrices in the source paper fails it, and its
-#' diagnostics are reported regardless. Callers should report the verdict rather
-#' than refuse to compute.
+#' test. One of the two matrices in [worked_matrices] fails it, and its
+#' diagnostics are published regardless. Use
+#' `assumption_checks()` to learn *which* factors are stranded.
 #'
 #' @examples
 #' cycle <- matrix(c(0, 1, 0,
@@ -90,10 +97,5 @@ dematel <- function(A) {
 #'
 #' @export
 is_irreducible <- function(A) {
-  n <- nrow(A)
-  M <- (A > 0) * 1
-  R <- diag(n) + M
-  P <- R
-  for (k in seq_len(n)) P <- (P %*% R > 0) * 1
-  all(P > 0)
+  all(reachability(A) > 0)
 }

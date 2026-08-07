@@ -4,7 +4,7 @@
 \alias{spectral_diagnostics}
 \title{Spectral diagnostics for one DEMATEL system}
 \usage{
-spectral_diagnostics(A, type = c("A", "T"))
+spectral_diagnostics(A, type = c("A", "T"), checks = TRUE)
 }
 \arguments{
 \item{A}{A square numeric matrix. Either a direct influence matrix
@@ -15,10 +15,16 @@ spectral_diagnostics(A, type = c("A", "T"))
 \code{\link[=dematel]{dematel()}}. \code{"T"} takes \code{A} as the total-relation matrix and recovers the
 spectrum of \code{D} through the inverse Moebius map \eqn{\mu = \lambda/(1 +
 \lambda)}.}
+
+\item{checks}{Whether to run \code{\link[=assumption_checks]{assumption_checks()}} and attach the result.
+Defaults to \code{TRUE} and should stay that way for anything a person will
+read. \code{FALSE} returns the numbers alone, or \code{NULL} if they cannot be
+computed, and exists for inner loops such as \code{\link[=surrogate_ensemble]{surrogate_ensemble()}}.}
 }
 \value{
-A named list, or \code{NULL} when \code{type = "A"} and \code{\link[=dematel]{dematel()}} found the
-degenerate case. Components:
+With \code{checks = TRUE}, a named list that always has the same shape,
+whatever was passed in. With \code{checks = FALSE}, the same list without
+\code{checks} and \code{engine_version}, or \code{NULL} when the matrix is inadmissible.
 
 \describe{
 \item{\code{n}}{Number of factors.}
@@ -49,6 +55,8 @@ by what accumulates there: where effects land.}
 1 by construction. Bounds how far the first-order sensitivity estimates
 of \code{\link[=sensitivity_matrix]{sensitivity_matrix()}} can be trusted; large values mean the
 derivative is locally uninformative.}
+\item{\code{checks}}{The \code{\link[=assumption_checks]{assumption_checks()}} table for this matrix.}
+\item{\code{engine_version}}{The package version that produced the diagnosis.}
 }
 }
 \description{
@@ -58,6 +66,20 @@ dominates, how concentrated the entry points are, where influence enters and
 where it accumulates, and how far a first-order sensitivity estimate can be
 trusted.
 }
+\section{The numbers never travel without their checks}{
+
+A diagnosis computed on a matrix that failed a check has to carry that fact
+with it, so \code{checks} is part of the returned object rather than something the
+caller was told separately and may not have kept. When the matrix is
+inadmissible every numeric field is \code{NA} and \code{checks} says why — the shape
+does not change, so a batch job over a hundred matrices gets a rectangular
+result and never a failure.
+
+\code{engine_version} is recorded because a metric definition has moved here
+before. When one moves again, old diagnoses must remain interpretable rather
+than silently mean something new.
+}
+
 \section{The three hierarchy readings run in different directions}{
 
 \code{hierarchy_sd} and \code{hierarchy_gini} are high when influence enters at a few
@@ -88,12 +110,19 @@ A <- matrix(c(0, 2, 0,
 d <- spectral_diagnostics(A)
 d$mu_max
 d$multiplier
-
-# High coupling, so indirect effects dominate:
 d$indirect_dominant
+
+# Anything that failed, and why:
+subset(d$checks, verdict != "pass", c(check, verdict))
+
+# Inadmissible input keeps the shape and explains itself:
+bad <- spectral_diagnostics(matrix(2, 4, 4))
+bad$mu_max
+bad$checks$reason[bad$checks$check == "totals_vary"]
 
 }
 \seealso{
+\code{\link[=assumption_checks]{assumption_checks()}} for the checks alone,
 \code{\link[=sensitivity_matrix]{sensitivity_matrix()}} for where to intervene,
 \code{\link[=surrogate_ensemble]{surrogate_ensemble()}} for a baseline to read these numbers against.
 }

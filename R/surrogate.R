@@ -58,7 +58,11 @@ surrogate_ensemble <- function(A, B = 200, seed = NULL) {
     S <- A
     S[off] <- sample(A[off])
     if (!is_irreducible(S)) next
-    d <- spectral_diagnostics(S, type = "A")
+    # checks = FALSE for the return shape rather than for speed: this path needs
+    # NULL so a bad draw can be rejected with `next`, where checks = TRUE would
+    # return an NA-filled row. The saving is real but small -- measured at
+    # roughly 0.05 s across B = 200 at 13 factors.
+    d <- spectral_diagnostics(S, type = "A", checks = FALSE)
     if (is.null(d)) next
     b <- b + 1
     out[[b]] <- data.frame(mu_max = d$mu_max, lambda_max = d$lambda_max,

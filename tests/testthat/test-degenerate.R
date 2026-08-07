@@ -1,16 +1,15 @@
-# The inputs a user can produce that the mathematics cannot take, and what the
-# engine currently does about them.
+# The inputs a user can produce that the mathematics cannot take.
 #
-# These tests pin present behaviour, including the parts that are scheduled to
-# change. When the assumption checks become returned data, this file is where
-# the change becomes visible, which is the point.
+# The rule these pin: nothing in this package raises a condition for anything a
+# user can cause by pasting an odd matrix. No stop(), no warning(), no message.
+# The reason lives in assumption_checks() instead, as data.
 
-test_that("uniform totals leave T undefined", {
+test_that("uniform totals leave T undefined, silently", {
   # If every row and column total is equal then s is that total, D has spectral
-  # radius exactly 1, and I - D is singular. This is not an error by the caller.
-  # A matrix of a single repeated value is the commonest way to reach it.
+  # radius exactly 1, and I - D is singular. Not an error by the caller: a
+  # matrix in which every pair was rated identically always meets it.
   A <- matrix(2, 5, 5)
-  expect_warning(out <- dematel(A), "uniform-totals")
+  expect_silent(out <- dematel(A))
   expect_null(out)
 })
 
@@ -20,26 +19,59 @@ test_that("a permutation matrix is degenerate for the same reason", {
                 1, 0, 0), 3, 3, byrow = TRUE)
   storage.mode(A) <- "double"
   expect_equal(rowSums(A), colSums(A))
-  expect_warning(expect_null(dematel(A)), "uniform-totals")
+  expect_silent(expect_null(dematel(A)))
 })
 
-test_that("the degenerate case propagates as NULL, never as an error", {
-  A <- matrix(2, 4, 4)
-  expect_warning(expect_null(spectral_diagnostics(A)), "uniform-totals")
-  expect_warning(expect_null(sensitivity_matrix(A)),   "uniform-totals")
+test_that("nothing a user can paste raises a condition", {
+  # Every one of these used to stop() or warning(). None may now.
+  inadmissible <- list(
+    not_square   = matrix(1:6, 2, 3),
+    negative     = matrix(c(0, -1, 1, 0), 2, 2),
+    not_a_matrix = as.data.frame(matrix(1, 2, 2)),
+    has_na       = matrix(c(0, NA, 1, 0), 2, 2),
+    infinite     = matrix(c(0, Inf, 1, 0), 2, 2),
+    all_zero     = matrix(0, 4, 4),
+    uniform      = matrix(2, 4, 4),
+    character    = matrix(letters[1:4], 2, 2),
+    empty        = matrix(numeric(0), 0, 0)
+  )
+
+  for (nm in names(inadmissible)) {
+    A <- inadmissible[[nm]]
+    expect_silent(dematel(A))
+    expect_null(dematel(A), info = nm)
+
+    expect_silent(spectral_diagnostics(A))
+    expect_silent(sensitivity_matrix(A))
+    expect_null(sensitivity_matrix(A), info = nm)
+    expect_silent(assumption_checks(A))
+  }
 })
 
-test_that("equal row totals alone are fine; it takes equal columns too", {
-  # Guards the reasoning behind the fixture in test-known-answer.R. Row totals
-  # all 3, column totals 3 / 2 / 4, so s = 4 and coupling is 3/4.
-  A <- matrix(c(0, 2, 1,
-                0, 0, 3,
-                3, 0, 0), 3, 3, byrow = TRUE)
-  storage.mode(A) <- "double"
-  expect_true(all(rowSums(A) == 3))
-  expect_false(all(colSums(A) == 3))
-  expect_silent(m <- dematel(A))
-  expect_equal(m$s, 4)
+test_that("an inadmissible matrix still returns the full diagnosis shape", {
+  # The decision behind this: a batch job over a hundred matrices gets a
+  # rectangular result and never a failure, and the numbers never travel
+  # without the checks that say whether they mean anything.
+  good <- spectral_diagnostics(worked_matrices$fefo_stock_control)
+  bad  <- spectral_diagnostics(matrix(2, 4, 4))
+
+  expect_identical(names(bad), names(good))
+  expect_true(is.na(bad$mu_max))
+  expect_true(is.na(bad$lambda_max))
+  expect_true(is.na(bad$hierarchy_sd))
+  expect_true(all(is.na(bad$entry_points)))
+  expect_length(bad$entry_points, 4)          # n is still known
+  expect_equal(bad$n, 4)
+
+  # And it says why, in the same table shape as a passing matrix.
+  expect_equal(bad$checks$verdict[bad$checks$check == "totals_vary"], "fail")
+})
+
+test_that("checks = FALSE returns NULL rather than the NA shape", {
+  # The inner-loop path. surrogate_ensemble() depends on this being NULL so it
+  # can reject a draw with `next`.
+  expect_null(spectral_diagnostics(matrix(2, 4, 4), checks = FALSE))
+  expect_null(spectral_diagnostics(matrix(1:6, 2, 3), checks = FALSE))
 })
 
 test_that("strong connectivity separates reachable from unreachable graphs", {
@@ -62,30 +94,20 @@ test_that("strong connectivity separates reachable from unreachable graphs", {
 })
 
 test_that("a disconnected graph still yields diagnostics", {
-  # Two components that never meet. The Perron vector is no longer unique, so
-  # the numbers mean less, but the engine must return them and let the caller
+  # Two components that never meet. The entry profile is no longer unique, so
+  # the numbers mean less, but the engine returns them and lets the caller
   # decide. Refusing here would make the assumption-check panel impossible.
   d <- spectral_diagnostics(block_diagonal * c(1, 2))
-  expect_type(d, "list")
   expect_true(is.finite(d$lambda_max))
+  expect_equal(d$checks$verdict[d$checks$check == "strong_connectivity"], "fail")
 })
 
-# --- Inherited behaviour that step 3 will replace ---------------------------
-#
-# The engine is not supposed to stop() for anything a user can cause by pasting
-# an odd matrix. It currently does, because step 1 ported the five functions
-# unchanged and the assumption checks are a separate step. These tests record
-# the present behaviour so the replacement is a visible diff rather than a
-# silent one.
+test_that("every diagnosis records the engine version", {
+  d <- spectral_diagnostics(worked_matrices$fefo_stock_control)
+  expect_identical(d$engine_version,
+                   as.character(utils::packageVersion("spectralDEMATEL")))
 
-test_that("INHERITED: dematel() stops on inputs a user can produce", {
-  expect_error(dematel(matrix(1:6, 2, 3)))                   # not square
-  expect_error(dematel(matrix(c(0, -1, 1, 0), 2, 2)))        # negative entry
-  expect_error(dematel(as.data.frame(matrix(1, 2, 2))))      # not a matrix
-})
-
-test_that("INHERITED: the degenerate case signals through a warning", {
-  # A warning can only be caught and re-parsed, which is how message text
-  # becomes an accidental API. Step 3 turns this into a returned verdict.
-  expect_warning(dematel(matrix(2, 3, 3)), "Lee et al")
+  # Including one that could not be computed.
+  expect_identical(spectral_diagnostics(matrix(2, 4, 4))$engine_version,
+                   d$engine_version)
 })

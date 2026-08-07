@@ -19,17 +19,12 @@ is strongly connected, that is, whether every factor can reach every other
 factor along some directed path. This is assumption A2, and it is what makes
 the dominant eigenvector unique and strictly positive.
 }
-\details{
-The test is performed by repeatedly squaring the boolean reachability matrix
-\eqn{(I + M)}, where \code{M} is the sign pattern of \code{A}. Costs \eqn{O(n^4)} in
-the worst case, which is free at the sizes DEMATEL models reach.
-}
 \section{Failure is common and is not fatal}{
 
 A single factor that dispatches nothing gives an all-zero row and fails the
-test. One of the two worked matrices in the source paper fails it, and its
-diagnostics are reported regardless. Callers should report the verdict rather
-than refuse to compute.
+test. One of the two matrices in \link{worked_matrices} fails it, and its
+diagnostics are published regardless. Use
+\code{assumption_checks()} to learn \emph{which} factors are stranded.
 }
 
 \examples{
