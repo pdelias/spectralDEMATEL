@@ -47,19 +47,30 @@ test_that("a defective T is handled and gives the rational spectrum", {
 
   # Mode dominance is not, and the reason is the point of this fixture. A
   # defective eigenvalue -- algebraic multiplicity 2, geometric multiplicity 1
-  # -- can only be computed to about sqrt(machine epsilon), roughly 1.5e-8. The
-  # repeated mu = -0.2 splits into a conjugate pair, and different LAPACK
-  # builds split it differently: this assertion at 1e-12 passed on macOS and
-  # failed on Linux. Asserting more precision than the mathematics allows is a
-  # test bug, not a platform bug.
+  # -- perturbs as the square root of the backward error rather than linearly,
+  # so it can only be computed to about sqrt(machine epsilon), roughly 1.5e-8.
+  # The repeated mu = -0.2 splits into a conjugate pair and different LAPACK
+  # builds split it differently.
   eps <- sqrt(.Machine$double.eps)
-  expect_equal(d$dominance, 0.25, tolerance = eps)         # (1/6) / (2/3)
 
-  # And the split itself stays inside that bound, which is the property being
-  # relied on rather than merely tolerated.
+  # The split itself stays inside that bound. This is the property being relied
+  # on, and it is asserted tightly.
   mu <- eigen(dematel(defective)$D, only.values = TRUE)$values
   repeated <- mu[order(Re(mu))][1:2]
   expect_lt(max(Mod(repeated - (-0.2))), eps)
+
+  # Dominance inherits it, amplified. It is |lambda_2| / lambda_max with
+  # |lambda_2| = 1/6, so an absolute perturbation of eps in the eigenvalue
+  # becomes a relative error of up to eps / (1/6), around 9e-8. Observed: 2e-8
+  # on Linux, 2e-16 on macOS. 1e-6 leaves an order of magnitude for LAPACK
+  # builds to differ.
+  #
+  # Loosening costs nothing here. This fixture's repeated eigenvalue is real
+  # and negative, so the largest modulus below the dominant one and the second
+  # largest real part are the same number: it never discriminated modulus from
+  # real part. That job belongs to `two_by_two` above and to test-identities.R,
+  # both of which assert at 1e-10 on well-separated spectra.
+  expect_equal(d$dominance, 0.25, tolerance = 1e-6)        # (1/6) / (2/3)
 })
 
 test_that("rank-one A gives mode dominance of exactly zero", {

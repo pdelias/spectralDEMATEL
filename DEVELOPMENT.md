@@ -99,6 +99,26 @@ The two continuous thresholds live in `CHECK_THRESHOLDS`, with the measurements
 behind them in the comment above it. Neither is fitted. If either moves, say so
 in `NEWS.md` — an interface quotes them to users as recommendations.
 
+## Tolerances, and the one that bit twice
+
+Most fixtures here have well-separated spectra and are asserted at 1e-10 to
+1e-12, which holds on every platform. The `defective` fixture is different and
+must not be treated the same way.
+
+A defective eigenvalue — algebraic multiplicity 2, geometric multiplicity 1 —
+perturbs as the *square root* of the backward error rather than linearly, so it
+is computable to about `sqrt(.Machine$double.eps)`, roughly 1.5e-8, and no
+further. macOS Accelerate and Linux LAPACK split the repeated pair differently.
+An assertion at 1e-12 passed locally on macOS and failed on Linux; the corrected
+1.49e-8 also failed, because `dominance` divides by `lambda_max` and amplifies
+the absolute perturbation into a larger relative one.
+
+The rule: **assert the perturbation bound tightly, and the quantity derived from
+it loosely.** Anything reading a repeated or near-repeated eigenvalue gets a
+tolerance derived from `sqrt(eps)` and the amplification, with the derivation
+written down. A local macOS run cannot catch this — the Linux jobs in the CI
+matrix are the only thing that can.
+
 ## Known rough edge
 
 `surrogate_ensemble()` redraws until it has `B` admissible shuffles, with no
