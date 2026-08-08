@@ -140,6 +140,21 @@ and on a cycle with chords (~0.03, returns a short ensemble). One test asserts
 a generous cap reproduces the uncapped output exactly, so published ensembles
 did not silently change.
 
+## Releasing a new version to the live application
+
+r-universe builds the Wasm binary within the hour. After that, an export still
+needs R's `available.packages()` cache cleared, because shinylive reads the
+Wasm repository index through it with `cache_user_dir = TRUE` and the entry
+lives for an hour:
+
+```r
+unlink(list.files(tools::R_user_dir("base", "cache"), full.names = TRUE))
+```
+
+Skip it and the export bundles the previous version, saying so only in a
+warning among several benign ones. Check what actually shipped:
+`ls <export>/shinylive/webr/packages/spectralDEMATEL/`.
+
 ## Changing something
 
 1. **A metric definition** — ask first. Then change the one implementation,
