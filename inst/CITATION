@@ -5,12 +5,29 @@
 
 if (!exists("meta") || is.null(meta)) meta <- packageDescription("spectralDEMATEL")
 
+# Nothing version-specific is written down here. A citation file that restates
+# the version, the year or a per-version DOI is a citation file that is wrong
+# one release later, and wrong silently -- nothing checks it.
+#
+# The year comes from whichever build stamp the installed copy carries, falling
+# back to today only when this is read from a source tree that has none.
+.stamp <- c(meta$Date, meta$Packaged, meta$Built)
+.stamp <- .stamp[!is.na(.stamp) & nzchar(.stamp)]
+.year  <- format(Sys.Date(), "%Y")
+if (length(.stamp)) {
+  # regexpr, not sub() with a lazy quantifier: sub() is POSIX extended by
+  # default, where .*? is not lazy, and the first attempt here silently
+  # returned an empty year rather than failing.
+  .hit <- regexpr("(19|20)[0-9]{2}", .stamp[1])
+  if (.hit > 0) .year <- regmatches(.stamp[1], .hit)
+}
+
 bibentry(
   bibtype = "Manual",
   title   = "spectralDEMATEL: Spectral Diagnostics for DEMATEL Influence Matrices",
   author  = person("Pavlos", "Delias",
                    comment = c(ORCID = "0000-0002-3722-2307")),
-  year    = "2026",
+  year    = .year,
   note    = paste("R package version", meta$Version),
   # No url field: R renders doi as a link already, and repeating the same
   # target prints it twice in the text form.
@@ -19,6 +36,7 @@ bibentry(
   header  = paste("To cite spectralDEMATEL in publications, use the concept DOI,",
                   "which always resolves to the newest release:"),
   footer  = paste("Where the exact version matters -- reproducing a published",
-                  "number, say -- cite the version DOI shown on that release's",
-                  "Zenodo record instead. For 0.5.0 it is 10.5281/zenodo.21849278.")
+                  "number, say -- cite the version DOI instead. Every release",
+                  "has its own; the concept DOI above resolves to the newest",
+                  "record, which shows it.")
 )
