@@ -1,3 +1,49 @@
+# spectralDEMATEL 0.4.0
+
+The structure map: naming a system's type, and saying how firmly.
+
+## New
+
+* `structural_type()` places a diagnosed system on the (coupling, hierarchy)
+  map, names its type, and returns the **margin to each cut** alongside. A
+  system at coupling 0.51 and one at 0.95 are both amplified and the confidence
+  in the advice is not remotely the same, so the margin travels with the name.
+  It also carries the source paper's own wording for the intervention logic
+  that type favours, and the caveat that the pairing is a hypothesis derived
+  from structure rather than a validated result.
+
+* `type_stability()` re-runs the classification across the range of hierarchy
+  cuts anyone might reasonably choose, and reports whether the type survives.
+  The cut is a recommendation, not a fitted constant, so this is the honest
+  question rather than "which side is it on".
+
+* `tradeoff_residual()` gives the system's distance from the corpus
+  coupling-hierarchy trade-off, in residual standard deviations. A supplement
+  to the computed hierarchy and never a substitute: used alone to assign types
+  the trade-off is wrong for 19 of the 117 reference systems.
+
+## Corpus constants
+
+Aggregates only, in `CORPUS` (internal): the fitted trade-off with its residual
+SD, counts and median multipliers by type, and 5/25/50/75/95 percentiles of
+each axis. The per-system rows are deliberately **not** shipped -- they are
+traceable to individual published studies and belong to work that is not yet
+out. Everything the map and the residual reading need is here without them.
+
+## The two cuts are not the same kind of constant
+
+Coupling at 0.50 is the indirect-dominance threshold: at that value the
+dominant eigenvalue of the total-relation matrix is exactly 1, so indirect
+effects exactly equal direct ones. It follows from the algebra.
+
+Hierarchy at 0.10 is a **recommendation**. `structural_type()` reports which
+cuts it used and whether each was the default, so an interface can say so.
+
+Only `hierarchy_sd` classifies. The 0.10 cut is calibrated against that reading
+and every corpus-level result is expressed in it; `hierarchy_gini` and
+`hierarchy_pr` measure the same idea on different scales, and the participation
+ratio runs the opposite way. Show all three, classify on one.
+
 # spectralDEMATEL 0.3.1
 
 * A `skipped` check no longer carries a value or a list of factors. Two call
