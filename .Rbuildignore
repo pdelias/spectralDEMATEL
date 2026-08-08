@@ -6,3 +6,6 @@
 ^LICENSE\.md$
 ^doc$
 ^Meta$
+# Zenodo reads this from the Git repository at release time, not from the built
+# tarball. Shipping it makes R CMD check report a hidden file.
+^\.zenodo\.json$

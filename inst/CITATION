@@ -1,0 +1,24 @@
+# Cited by DOI rather than by repository URL. The concept DOI below always
+# resolves to the newest release, which is what citing "the software" means; a
+# reader reproducing a specific number wants the version DOI instead, and the
+# footer says so because that distinction is silent when you get it wrong.
+
+if (!exists("meta") || is.null(meta)) meta <- packageDescription("spectralDEMATEL")
+
+bibentry(
+  bibtype = "Manual",
+  title   = "spectralDEMATEL: Spectral Diagnostics for DEMATEL Influence Matrices",
+  author  = person("Pavlos", "Delias",
+                   comment = c(ORCID = "0000-0002-3722-2307")),
+  year    = "2026",
+  note    = paste("R package version", meta$Version),
+  # No url field: R renders doi as a link already, and repeating the same
+  # target prints it twice in the text form.
+  doi     = "10.5281/zenodo.21849277",
+
+  header  = paste("To cite spectralDEMATEL in publications, use the concept DOI,",
+                  "which always resolves to the newest release:"),
+  footer  = paste("Where the exact version matters -- reproducing a published",
+                  "number, say -- cite the version DOI shown on that release's",
+                  "Zenodo record instead. For 0.5.0 it is 10.5281/zenodo.21849278.")
+)
