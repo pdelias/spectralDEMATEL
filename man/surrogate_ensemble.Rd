@@ -4,21 +4,31 @@
 \alias{surrogate_ensemble}
 \title{Permutation surrogate baseline}
 \usage{
-surrogate_ensemble(A, B = 200, seed = NULL)
+surrogate_ensemble(A, B = 200, seed = NULL, max_attempts = 50L * B)
 }
 \arguments{
 \item{A}{A square, non-negative numeric matrix of direct influences.}
 
-\item{B}{Ensemble size. Draws that fail strong connectivity or hit the
-degenerate case are rejected and redrawn, so \code{B} rows are always returned.}
+\item{B}{Ensemble size requested. Draws that fail strong connectivity or hit
+the degenerate case are rejected and redrawn.}
 
 \item{seed}{Optional integer. Sets the random seed before drawing, so a
 figure can be reproduced. Passing \code{NULL} leaves the caller's random state
 alone.}
+
+\item{max_attempts}{Maximum number of shuffles to draw before giving up,
+default \code{50 * B}. Reaching it returns a short ensemble rather than
+continuing; see the section below.}
 }
 \value{
-A data frame of \code{B} rows with columns \code{mu_max}, \code{lambda_max},
-\code{dominance}, \code{hierarchy_sd}, \code{hierarchy_pr} and \code{hierarchy_gini}.
+A data frame with columns \code{mu_max}, \code{lambda_max}, \code{dominance},
+\code{hierarchy_sd}, \code{hierarchy_pr} and \code{hierarchy_gini}, carrying three
+attributes: \code{requested} (the \code{B} asked for), \code{attempts} (shuffles drawn)
+and \code{complete} (whether \code{B} rows were reached). Returns \code{NULL} if no draw
+was admissible, matching \code{\link[=spectral_diagnostics]{spectral_diagnostics()}} on inadmissible input.
+
+\strong{The row count is not guaranteed to be \code{B}.} Read \code{complete} before
+reporting anything derived from the ensemble.
 }
 \description{
 Shuffles the off-diagonal entries of \code{A} while holding the number of factors,
@@ -41,11 +51,22 @@ each. At DEMATEL sizes that is still fast, but it is the only function here
 that should be run on demand rather than eagerly.
 }
 
-\section{Rejection can loop}{
+\section{When rejection dominates}{
 
-A matrix sparse enough that most shuffles disconnect the graph will reject
-many draws before accepting \code{B}. The loop has no iteration cap; this is
-inherited from the source implementation and is noted in DEVELOPMENT.md.
+A matrix sparse enough that most shuffles disconnect the graph rejects most
+draws. A directed cycle is the extreme case: its edges are exactly as many as
+strong connectivity needs, so almost every rearrangement of them breaks it.
+
+The original implementation looped until it had \code{B} admissible draws with no
+cap, which on such a matrix does not terminate in any useful time. In a
+script that is a long wait; compiled to WebAssembly it is a frozen browser
+tab with no way to cancel, reachable by pasting a sparse matrix.
+
+So the loop is bounded. Hitting the bound is not an error and does not throw:
+the function returns the draws it did get and says so in \code{complete}, on the
+principle that a short null distribution the caller knows about is more
+useful than no answer and far more useful than a hang. \code{50 * B} tolerates an
+acceptance rate down to about 2\% before it bites.
 }
 
 \examples{

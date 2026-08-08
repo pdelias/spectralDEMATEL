@@ -80,3 +80,97 @@ test_that("the observed system can be located in its own ensemble", {
   expect_gte(p, 0)
   expect_lte(p, 1)
 })
+
+# The iteration cap. -----------------------------------------------------------
+#
+# The rejection loop used to run until it had B admissible draws, with no bound.
+# On a sparse matrix that does not terminate in any useful time, and compiled to
+# WebAssembly it is a frozen browser tab reachable by pasting a matrix.
+#
+# A directed cycle is the extreme: exactly as many edges as strong connectivity
+# needs, so essentially no rearrangement of them survives. Measured acceptance
+# is 0.000 over 400 shuffles. Adding chords buys back a small acceptance rate,
+# which is what exercises the short-but-non-empty return.
+
+cycle_matrix <- function(n = 7) {
+  A <- matrix(0, n, n)
+  A[cbind(seq_len(n), c(seq_len(n)[-1], 1L))] <- 1
+  storage.mode(A) <- "double"
+  A
+}
+
+sparse_matrix <- function() {          # measured acceptance ~0.03
+  A <- cycle_matrix(7)
+  A[1, 4] <- 1; A[4, 1] <- 1; A[2, 6] <- 1; A[6, 2] <- 1
+  A
+}
+
+test_that("the pathological matrices really are pathological", {
+  # If these stop holding, the tests below stop testing the cap and start
+  # passing for the wrong reason.
+  acceptance <- function(A, n = 400) {
+    set.seed(1)
+    off <- which(row(A) != col(A))
+    mean(vapply(seq_len(n), function(i) {
+      S <- A; S[off] <- sample(A[off]); is_irreducible(S)
+    }, logical(1)))
+  }
+  expect_true(is_irreducible(cycle_matrix()))
+  expect_true(is_irreducible(sparse_matrix()))
+  expect_lt(acceptance(cycle_matrix()), 0.01)
+  expect_lt(acceptance(sparse_matrix()), 0.20)
+})
+
+test_that("a matrix that admits no shuffle returns NULL instead of spinning", {
+  elapsed <- system.time(
+    ens <- surrogate_ensemble(cycle_matrix(), B = 200, seed = 1, max_attempts = 500)
+  )[["elapsed"]]
+
+  expect_null(ens)
+  expect_lt(elapsed, 30)
+})
+
+test_that("a matrix that admits few shuffles returns a short ensemble that says so", {
+  ens <- surrogate_ensemble(sparse_matrix(), B = 200, seed = 1, max_attempts = 400)
+
+  expect_s3_class(ens, "data.frame")
+  expect_lt(nrow(ens), 200)
+  expect_gt(nrow(ens), 0)
+  expect_false(attr(ens, "complete"))
+  expect_equal(attr(ens, "requested"), 200)
+  expect_equal(attr(ens, "attempts"), 400)
+})
+
+test_that("a complete ensemble is marked complete and does not spend its budget", {
+  ens <- surrogate_ensemble(worked_matrices$fefo_stock_control, B = 20, seed = 1)
+
+  expect_true(attr(ens, "complete"))
+  expect_equal(attr(ens, "requested"), 20)
+  expect_equal(nrow(ens), 20)
+  expect_lt(attr(ens, "attempts"), 50L * 20L)
+})
+
+test_that("the cap does not change the draws it never truncates", {
+  # A generous cap must give identical output to the uncapped original, or every
+  # ensemble already published against this package silently changes.
+  a <- surrogate_ensemble(worked_matrices$fefo_stock_control, B = 15, seed = 7)
+  b <- surrogate_ensemble(worked_matrices$fefo_stock_control, B = 15, seed = 7,
+                          max_attempts = 10000)
+  expect_equal(as.data.frame(a), as.data.frame(b))
+})
+
+test_that("surrogate_position reports a short ensemble instead of hiding it", {
+  sp <- surrogate_position(sparse_matrix(), B = 200, seed = 1, max_attempts = 400)
+
+  expect_false(sp$complete)
+  expect_equal(sp$requested, 200)
+  expect_lt(sp$B, 200)
+  expect_equal(sp$attempts, 400)
+  # The share is still computed, over however many draws there were -- it is the
+  # caller's job to read `complete` before quoting it.
+  expect_true(is.finite(sp$type_share))
+})
+
+test_that("surrogate_position returns NULL when no shuffle is admissible", {
+  expect_null(surrogate_position(cycle_matrix(), B = 200, seed = 1, max_attempts = 500))
+})

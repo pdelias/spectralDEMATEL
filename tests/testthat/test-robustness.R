@@ -8,7 +8,11 @@
 test_that("surrogate_position reports a position for every diagnostic", {
   sp <- surrogate_position(worked_matrices$fefo_stock_control, B = 30, seed = 1)
 
-  expect_named(sp, c("metrics", "type", "type_share", "type_table", "B"))
+  # `requested`, `complete` and `attempts` travel with `B` so a caller can tell
+  # a share computed over 200 draws from one computed over 7 -- the ensemble is
+  # allowed to come back short when the rejection rate is high.
+  expect_named(sp, c("metrics", "type", "type_share", "type_table", "B",
+                     "requested", "complete", "attempts"))
   expect_equal(sp$B, 30)
   expect_setequal(sp$metrics$metric, c("mu_max", "hierarchy_sd", "dominance"))
   expect_named(sp$metrics, c("metric", "observed", "median", "min", "max",

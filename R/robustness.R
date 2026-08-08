@@ -35,7 +35,19 @@
 #'       than from the structure the analyst built.}
 #'     \item{`type_table`}{Counts of every type across the ensemble.}
 #'     \item{`B`}{Ensemble size actually used.}
+#'     \item{`requested`}{Ensemble size asked for.}
+#'     \item{`complete`}{`TRUE` when `B` reached `requested`.}
+#'     \item{`attempts`}{Shuffles drawn, accepted and rejected together.}
 #'   }
+#'
+#'   Returns `NULL` when the matrix is inadmissible, when it is not irreducible,
+#'   or when no shuffle of it was admissible.
+#'
+#' @section Read `complete` before quoting a share:
+#' A sparse matrix rejects most shuffles, so the ensemble can come back shorter
+#' than requested; see [surrogate_ensemble()]. A `share_ge` computed over seven
+#' draws and one computed over two hundred are not the same claim, and `B` alone
+#' does not distinguish them from what the caller asked for.
 #'
 #' @section Reading `share_ge`:
 #' It is a position, not a p-value. `share_ge = 0` means the observation exceeds
@@ -57,16 +69,24 @@
 #' sp$metrics[, c("metric", "observed", "share_ge", "outside")]
 #' sp$type_share
 #'
+#' @param max_attempts Maximum number of shuffles drawn before giving up,
+#'   default `50 * B`, passed to [surrogate_ensemble()]. Reaching it yields a
+#'   short ensemble and `complete = FALSE` rather than an error.
+#'
 #' @seealso [surrogate_ensemble()] for the raw draws.
 #' @export
 surrogate_position <- function(A, B = 200, seed = NULL,
                                coupling_cut  = STRUCTURE_CUTS$coupling,
-                               hierarchy_cut = STRUCTURE_CUTS$hierarchy) {
+                               hierarchy_cut = STRUCTURE_CUTS$hierarchy,
+                               max_attempts  = 50L * B) {
   obs <- spectral_diagnostics(A, checks = FALSE)
   if (is.null(obs)) return(NULL)
   if (!is_irreducible(A)) return(NULL)
 
-  ens <- surrogate_ensemble(A, B = B, seed = seed)
+  ens <- surrogate_ensemble(A, B = B, seed = seed, max_attempts = max_attempts)
+  # No admissible shuffle at all. There is no null distribution to sit in, so
+  # there is nothing to report -- same answer shape as an inadmissible matrix.
+  if (is.null(ens)) return(NULL)
 
   quantities <- c("mu_max", "hierarchy_sd", "dominance")
   metrics <- do.call(rbind, lapply(quantities, function(q) {
@@ -94,7 +114,13 @@ surrogate_position <- function(A, B = 200, seed = NULL,
     type       = obs_type,
     type_share = mean(draw_types == obs_type),
     type_table = table(draw_types),
-    B          = nrow(ens)
+    B          = nrow(ens),
+    # What was asked for, versus what the rejection rate allowed. A share
+    # computed over seven draws and one computed over two hundred are not the
+    # same claim, and nothing downstream can tell them apart from `B` alone.
+    requested  = B,
+    complete   = isTRUE(attr(ens, "complete")),
+    attempts   = attr(ens, "attempts")
   )
 }
 

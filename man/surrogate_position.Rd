@@ -9,7 +9,8 @@ surrogate_position(
   B = 200,
   seed = NULL,
   coupling_cut = STRUCTURE_CUTS$coupling,
-  hierarchy_cut = STRUCTURE_CUTS$hierarchy
+  hierarchy_cut = STRUCTURE_CUTS$hierarchy,
+  max_attempts = 50L * B
 )
 }
 \arguments{
@@ -22,6 +23,10 @@ waiting.}
 
 \item{coupling_cut, hierarchy_cut}{Passed to \code{\link[=structural_type]{structural_type()}} when
 classifying each draw.}
+
+\item{max_attempts}{Maximum number of shuffles drawn before giving up,
+default \code{50 * B}, passed to \code{\link[=surrogate_ensemble]{surrogate_ensemble()}}. Reaching it yields a
+short ensemble and \code{complete = FALSE} rather than an error.}
 }
 \value{
 A list, or \code{NULL} when the matrix cannot be diagnosed:
@@ -36,7 +41,13 @@ type. High means the type follows from the rating distribution rather
 than from the structure the analyst built.}
 \item{\code{type_table}}{Counts of every type across the ensemble.}
 \item{\code{B}}{Ensemble size actually used.}
+\item{\code{requested}}{Ensemble size asked for.}
+\item{\code{complete}}{\code{TRUE} when \code{B} reached \code{requested}.}
+\item{\code{attempts}}{Shuffles drawn, accepted and rejected together.}
 }
+
+Returns \code{NULL} when the matrix is inadmissible, when it is not irreducible,
+or when no shuffle of it was admissible.
 }
 \description{
 Shuffles the off-diagonal entries, holding the number of factors, the density
@@ -49,6 +60,14 @@ This is the comparison the source paper could not run across its corpus,
 because the precomputed spectral file holds no raw matrices. A user of this
 package has their own matrix, so they can.
 }
+\section{Read \code{complete} before quoting a share}{
+
+A sparse matrix rejects most shuffles, so the ensemble can come back shorter
+than requested; see \code{\link[=surrogate_ensemble]{surrogate_ensemble()}}. A \code{share_ge} computed over seven
+draws and one computed over two hundred are not the same claim, and \code{B} alone
+does not distinguish them from what the caller asked for.
+}
+
 \section{Reading \code{share_ge}}{
 
 It is a position, not a p-value. \code{share_ge = 0} means the observation exceeds

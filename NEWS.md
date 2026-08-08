@@ -1,3 +1,28 @@
+# spectralDEMATEL 0.6.0
+
+The surrogate rejection loop is bounded.
+
+## Changed
+
+* `surrogate_ensemble()` gains `max_attempts`, default `50 * B`. It previously
+  redrew until it had `B` admissible shuffles with no cap, so a matrix sparse
+  enough that most shuffles disconnect the graph did not terminate in any useful
+  time. Compiled to WebAssembly that is a frozen browser tab with no way to
+  cancel, reachable by pasting a sparse matrix.
+
+* **`surrogate_ensemble()` no longer guarantees `B` rows.** Reaching the bound
+  returns the draws it did get rather than throwing, carrying `requested`,
+  `attempts` and `complete` attributes. No admissible draw at all returns `NULL`,
+  as `spectral_diagnostics()` does on inadmissible input.
+
+* `surrogate_position()` gains `max_attempts` and returns `requested`,
+  `complete` and `attempts` alongside `B`. **Read `complete` before quoting a
+  surrogate share**: one computed over seven draws and one computed over two
+  hundred are not the same claim, and `B` alone does not distinguish them.
+
+A cap generous enough not to truncate reproduces the previous output exactly, so
+ensembles drawn with an explicit seed against earlier versions are unchanged.
+
 # spectralDEMATEL 0.5.0
 
 The robustness section: whether a structural type is worth anything.

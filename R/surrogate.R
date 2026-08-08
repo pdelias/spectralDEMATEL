@@ -16,14 +16,23 @@
 #' distributed, not because of how its factors were connected.
 #'
 #' @param A A square, non-negative numeric matrix of direct influences.
-#' @param B Ensemble size. Draws that fail strong connectivity or hit the
-#'   degenerate case are rejected and redrawn, so `B` rows are always returned.
+#' @param B Ensemble size requested. Draws that fail strong connectivity or hit
+#'   the degenerate case are rejected and redrawn.
 #' @param seed Optional integer. Sets the random seed before drawing, so a
 #'   figure can be reproduced. Passing `NULL` leaves the caller's random state
 #'   alone.
+#' @param max_attempts Maximum number of shuffles to draw before giving up,
+#'   default `50 * B`. Reaching it returns a short ensemble rather than
+#'   continuing; see the section below.
 #'
-#' @return A data frame of `B` rows with columns `mu_max`, `lambda_max`,
-#'   `dominance`, `hierarchy_sd`, `hierarchy_pr` and `hierarchy_gini`.
+#' @return A data frame with columns `mu_max`, `lambda_max`, `dominance`,
+#'   `hierarchy_sd`, `hierarchy_pr` and `hierarchy_gini`, carrying three
+#'   attributes: `requested` (the `B` asked for), `attempts` (shuffles drawn)
+#'   and `complete` (whether `B` rows were reached). Returns `NULL` if no draw
+#'   was admissible, matching [spectral_diagnostics()] on inadmissible input.
+#'
+#'   **The row count is not guaranteed to be `B`.** Read `complete` before
+#'   reporting anything derived from the ensemble.
 #'
 #' @section Cost:
 #' This is the one part of the package that is not instant. Each draw is an
@@ -31,10 +40,21 @@
 #' each. At DEMATEL sizes that is still fast, but it is the only function here
 #' that should be run on demand rather than eagerly.
 #'
-#' @section Rejection can loop:
-#' A matrix sparse enough that most shuffles disconnect the graph will reject
-#' many draws before accepting `B`. The loop has no iteration cap; this is
-#' inherited from the source implementation and is noted in DEVELOPMENT.md.
+#' @section When rejection dominates:
+#' A matrix sparse enough that most shuffles disconnect the graph rejects most
+#' draws. A directed cycle is the extreme case: its edges are exactly as many as
+#' strong connectivity needs, so almost every rearrangement of them breaks it.
+#'
+#' The original implementation looped until it had `B` admissible draws with no
+#' cap, which on such a matrix does not terminate in any useful time. In a
+#' script that is a long wait; compiled to WebAssembly it is a frozen browser
+#' tab with no way to cancel, reachable by pasting a sparse matrix.
+#'
+#' So the loop is bounded. Hitting the bound is not an error and does not throw:
+#' the function returns the draws it did get and says so in `complete`, on the
+#' principle that a short null distribution the caller knows about is more
+#' useful than no answer and far more useful than a hang. `50 * B` tolerates an
+#' acceptance rate down to about 2% before it bites.
 #'
 #' @examples
 #' set.seed(1)
@@ -48,13 +68,14 @@
 #' }
 #'
 #' @export
-surrogate_ensemble <- function(A, B = 200, seed = NULL) {
+surrogate_ensemble <- function(A, B = 200, seed = NULL, max_attempts = 50L * B) {
   if (!is.null(seed)) set.seed(seed)
-  n <- nrow(A)
   off <- which(row(A) != col(A))
   out <- vector("list", B)
   b <- 0
-  while (b < B) {
+  attempts <- 0
+  while (b < B && attempts < max_attempts) {
+    attempts <- attempts + 1
     S <- A
     S[off] <- sample(A[off])
     if (!is_irreducible(S)) next
@@ -70,5 +91,10 @@ surrogate_ensemble <- function(A, B = 200, seed = NULL) {
                            hierarchy_pr = d$hierarchy_pr,
                            hierarchy_gini = d$hierarchy_gini)
   }
-  do.call(rbind, out)
+  if (b == 0) return(NULL)
+  res <- do.call(rbind, out[seq_len(b)])
+  attr(res, "requested") <- B
+  attr(res, "attempts")  <- attempts
+  attr(res, "complete")  <- b >= B
+  res
 }

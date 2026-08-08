@@ -119,11 +119,26 @@ tolerance derived from `sqrt(eps)` and the amplification, with the derivation
 written down. A local macOS run cannot catch this — the Linux jobs in the CI
 matrix are the only thing that can.
 
-## Known rough edge
+## The rejection loop is bounded, and the bound is part of the contract
 
-`surrogate_ensemble()` redraws until it has `B` admissible shuffles, with no
-iteration cap. A matrix sparse enough that most shuffles disconnect the graph
-will spin. Inherited from the source implementation, not yet pinned by a test.
+`surrogate_ensemble()` redraws until it has `B` admissible shuffles or until it
+has spent `max_attempts` (default `50 * B`). It used to have no cap at all, and
+a matrix sparse enough that most shuffles disconnect the graph would spin --
+under webR, a frozen tab with no cancel.
+
+Reaching the bound is not an error and does not throw. The function returns the
+draws it got, with `requested`, `attempts` and `complete` attributes, and
+`surrogate_position()` passes those through. **Anything reporting a surrogate
+share must read `complete` first**: a share over seven draws and a share over
+two hundred are not the same claim and `B` alone cannot tell them apart.
+
+No admissible draw at all returns `NULL`, matching `spectral_diagnostics()` on
+inadmissible input.
+
+Pinned by tests on a directed cycle (measured acceptance 0.000, returns `NULL`)
+and on a cycle with chords (~0.03, returns a short ensemble). One test asserts
+a generous cap reproduces the uncapped output exactly, so published ensembles
+did not silently change.
 
 ## Changing something
 
