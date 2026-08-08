@@ -3,6 +3,7 @@
 <!-- badges: start -->
 [![R-CMD-check](https://github.com/pdelias/spectralDEMATEL/actions/workflows/R-CMD-check.yaml/badge.svg)](https://github.com/pdelias/spectralDEMATEL/actions/workflows/R-CMD-check.yaml)
 [![r-universe](https://pdelias.r-universe.dev/badges/spectralDEMATEL)](https://pdelias.r-universe.dev/spectralDEMATEL)
+[![DOI](https://zenodo.org/badge/DOI/10.5281/zenodo.21849277.svg)](https://doi.org/10.5281/zenodo.21849277)
 <!-- badges: end -->
 
 Spectral diagnostics for DEMATEL influence matrices.
@@ -142,6 +143,32 @@ the closed-form derivative. Agreement between a function and a literal it
 produced proves only that nothing changed.
 
 See [DEVELOPMENT.md](DEVELOPMENT.md) before changing anything in `R/`.
+
+## Citation
+
+```
+Delias, P. (2026). spectralDEMATEL: Spectral Diagnostics for DEMATEL Influence
+Matrices. Zenodo. https://doi.org/10.5281/zenodo.21849277
+```
+
+```bibtex
+@software{delias_spectraldematel,
+  author    = {Delias, Pavlos},
+  title     = {spectralDEMATEL: Spectral Diagnostics for {DEMATEL} Influence Matrices},
+  publisher = {Zenodo},
+  year      = {2026},
+  doi       = {10.5281/zenodo.21849277},
+  url       = {https://doi.org/10.5281/zenodo.21849277}
+}
+```
+
+That is the **concept DOI**: it always resolves to the newest release, which is
+what you want when citing the software as such.
+
+Where the exact version matters — reproducing a number from a paper, say — cite
+the **version DOI** instead. Every release has its own, shown on its Zenodo
+record. For 0.5.0 it is
+[10.5281/zenodo.21849278](https://doi.org/10.5281/zenodo.21849278).
 
 ## License
 
