@@ -1,0 +1,24 @@
+{
+  "title": "spectralDEMATEL: Spectral Diagnostics for DEMATEL Influence Matrices",
+  "description": "<p>An R package that computes the spectral diagnostics of a DEMATEL influence matrix: coupling and the total-effect multiplier, indirect and mode dominance, three readings of hierarchy, the entry and accumulation profiles, the eigenvalue condition number, a permutation surrogate baseline, and the closed-form derivative of the dominant eigenvalue in every off-diagonal entry.</p><p>The package computes and returns data. It does not draw, read files, or print, so it can be driven equally from a script, a batch job, or a browser-side application compiled to WebAssembly.</p><p>Depends on base R and <code>stats</code> only.</p>",
+  "upload_type": "software",
+  "license": "MIT",
+  "access_right": "open",
+  "version": "0.5.0",
+  "language": "eng",
+  "creators": [
+    {
+      "name": "Delias, Pavlos",
+      "orcid": "0000-0002-3722-2307"
+    }
+  ],
+  "keywords": [
+    "DEMATEL",
+    "multi-criteria decision analysis",
+    "spectral analysis",
+    "eigenvalue sensitivity",
+    "influence matrix",
+    "R",
+    "WebAssembly"
+  ]
+}
