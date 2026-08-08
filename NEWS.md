@@ -1,3 +1,48 @@
+# spectralDEMATEL 0.5.0
+
+The robustness section: whether a structural type is worth anything.
+
+## New
+
+* `surrogate_position()` places each observed diagnostic in its own permutation
+  ensemble, holding the number of factors, the density and the exact multiset
+  of ratings fixed. Reports the observed value, the ensemble range and median,
+  the share of draws at or above the observation, and whether the observation
+  falls outside the ensemble entirely. This is the comparison the source paper
+  could not run across its corpus, because the precomputed spectral file holds
+  no raw matrices.
+
+* `measurement_stability()` perturbs the ratings by a stated tolerance and
+  recomputes the type. Expert judgements on a four- or five-point scale carry
+  at least half a point of noise, and a classification that does not survive
+  that is not a classification. Recorded zeros are left alone by default: a
+  zero is a judgement that there is no influence, not a one with noise on it.
+  Perturbed values are clamped to the scale the analyst used.
+
+Both take an exposed seed, so a figure that goes into a paper can be
+reproduced.
+
+## `type_share` is weak evidence for a common type
+
+Nearly 70% of the reference corpus is diffuse-amplified, so a shuffled matrix
+usually lands there too. A high `type_share` for a common type says the null
+also produces that type, not that the observation is unremarkable. The
+per-metric positions are the informative part. This is documented on the
+function, because it is exactly the kind of number that reads as reassurance
+when it carries none.
+
+## A correction to how stability was tested
+
+The first version of the test suite asserted that a larger tolerance never
+leaves a type more secure than a smaller one. That was both vacuous and wrong.
+Vacuous because it compared systems far from any boundary, where every
+tolerance returns 1.000. Wrong because monotonicity does not hold in general: a
+system sitting exactly on a cut stays near 0.5 at any tolerance, since more
+noise pushes it across in both directions equally. It is replaced by a fixture
+sitting one part in ten thousand from the hierarchy cut, which must report the
+coin flip it is, and a moderate-distance case where monotonicity genuinely does
+hold.
+
 # spectralDEMATEL 0.4.0
 
 The structure map: naming a system's type, and saying how firmly.
