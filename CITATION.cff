@@ -1,0 +1,33 @@
+cff-version: 1.2.0
+message: "If you use this package, please cite it using the metadata below."
+title: "spectralDEMATEL: Spectral Diagnostics for DEMATEL Influence Matrices"
+abstract: >-
+  Computes the spectral diagnostics of a DEMATEL influence matrix: coupling and
+  the total-effect multiplier, indirect and mode dominance, three readings of
+  hierarchy, the entry and accumulation profiles, the eigenvalue condition
+  number, a permutation surrogate baseline, and the closed-form derivative of
+  the dominant eigenvalue in every off-diagonal entry. The package computes and
+  returns data. It does not draw, read files, or print, so it can be driven
+  equally from a script, a batch job, or a browser-side application compiled to
+  WebAssembly.
+type: software
+authors:
+  - family-names: Delias
+    given-names: Pavlos
+    orcid: "https://orcid.org/0000-0002-3722-2307"
+    affiliation: "Democritus University of Thrace"
+# The concept DOI, matching the README badge and inst/CITATION. Deliberately not
+# a version DOI: this file is read by whoever arrives at the repository, and the
+# newest release is what they should cite unless they need to pin a number.
+doi: 10.5281/zenodo.21849277
+repository-code: "https://github.com/pdelias/spectralDEMATEL"
+url: "https://pdelias.r-universe.dev/spectralDEMATEL"
+license: MIT
+keywords:
+  - DEMATEL
+  - multi-criteria decision analysis
+  - spectral analysis
+  - eigenvalue sensitivity
+  - influence matrix
+  - R
+  - WebAssembly

@@ -9,3 +9,7 @@
 # Zenodo reads this from the Git repository at release time, not from the built
 # tarball. Shipping it makes R CMD check report a hidden file.
 ^\.zenodo\.json$
+# GitHub reads CITATION.cff from the repository to show its "Cite this
+# repository" button. R CMD check does not expect it in the tarball, and this
+# package's CI fails on any NOTE. inst/CITATION is the one R itself reads.
+^CITATION\.cff$
