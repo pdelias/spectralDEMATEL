@@ -325,6 +325,37 @@ here that is not instant — each draw is an eigendecomposition plus a
 connectivity check — so run it on demand rather than eagerly, and lower `B` if a
 user is waiting.
 
+### The ensemble can come back smaller than you asked for
+
+A shuffle that disconnects the graph is rejected and redrawn. On a sparse matrix
+almost every shuffle disconnects it, so the redrawing can go on a long time. A
+directed cycle is the extreme case: its edges are exactly as many as strong
+connectivity needs, and essentially no rearrangement of them survives.
+
+`surrogate_ensemble()` therefore stops after `max_attempts` draws, `50 * B` by
+default, and returns what it has. Reaching that bound is not an error and does
+not throw. It is recorded in the result.
+
+```{r}
+attributes(ens)[c("requested", "attempts", "complete")]
+```
+
+`complete` is the one to read. A share computed over two hundred draws and a
+share computed over seven are not the same claim, and the row count alone does
+not say which you have.
+
+```{r}
+if (isTRUE(attr(ens, "complete"))) {
+  mean(ens$mu_max >= d_fefo$mu_max)
+} else {
+  "ensemble truncated; too few draws to quote a share"
+}
+```
+
+`surrogate_position()` passes the same three values through, so the check is
+available whichever entry point you use. A matrix that admits no valid shuffle
+at all returns `NULL`, as `spectral_diagnostics()` does on inadmissible input.
+
 ## Showing your work
 
 Every diagnosis records the version of the engine that produced it.
