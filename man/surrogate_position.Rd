@@ -48,8 +48,9 @@ the ensemble median, minimum and maximum, \code{share_ge} (the proportion
 of draws at or above the observed value), \code{outside} (\code{TRUE} when the
 observation falls beyond the whole ensemble), the ensemble \code{mean} and
 standard deviation \code{sd}, and \code{z}, the observed value less the mean in
-units of that standard deviation. \code{z} is \code{NA} when the ensemble does
-not vary or holds a single draw. Both hierarchy rows are \strong{high when
+units of that standard deviation. \code{z} is \code{NA} when the ensemble
+holds a single draw or does not vary beyond rounding (a spread below
+\code{1e-10} of the size of the values). Both hierarchy rows are \strong{high when
 influence is concentrated}.}
 \item{\code{type}}{The observed structural type.}
 \item{\code{type_share}}{Proportion of surrogate draws that produce the same

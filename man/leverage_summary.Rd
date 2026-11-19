@@ -30,6 +30,9 @@ of the receiving one, with the two profiles scaled so that
 derivatives are locally uninformative.}
 \item{\code{mu_max}}{Coupling. A link on the line is a stabiliser exactly
 when its \code{weight} is below it.}
+\item{\code{strongly_connected}}{Whether the influence graph is strongly
+connected. When it is \code{FALSE} the two tables are not to be relied on;
+see below.}
 \item{\code{engine_version}}{The package version that produced the summary.}
 }
 }
@@ -50,6 +53,17 @@ comparison of two numbers: a link on the line is a stabiliser when its
 
 A link with a \code{rating} of zero is listed like any other. The derivative says
 what would follow if an influence were introduced there.
+}
+
+\section{A system that is not strongly connected}{
+
+The two profiles are then not unique, or hold exact zeros, and the
+derivative of some links is undefined or is zero up to rounding. Links whose
+derivative is not a finite number, or is below \code{1e-12} of the largest
+derivative in size, are left out of both tables, so the tables can hold
+fewer than \code{n(n - 1)} links. What remains can depend on the numerical
+library. \code{strongly_connected} says when this applies, and \code{ev_condition} is
+not a safeguard there: it can be close to 1 for such a system.
 }
 
 \section{First-order, and bounded}{

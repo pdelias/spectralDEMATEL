@@ -34,8 +34,9 @@
 #'       of draws at or above the observed value), `outside` (`TRUE` when the
 #'       observation falls beyond the whole ensemble), the ensemble `mean` and
 #'       standard deviation `sd`, and `z`, the observed value less the mean in
-#'       units of that standard deviation. `z` is `NA` when the ensemble does
-#'       not vary or holds a single draw. Both hierarchy rows are **high when
+#'       units of that standard deviation. `z` is `NA` when the ensemble
+#'       holds a single draw or does not vary beyond rounding (a spread below
+#'       `1e-10` of the size of the values). Both hierarchy rows are **high when
 #'       influence is concentrated**.}
 #'     \item{`type`}{The observed structural type.}
 #'     \item{`type_share`}{Proportion of surrogate draws that produce the same
@@ -127,9 +128,13 @@ surrogate_position <- function(A, B = 200, seed = NULL,
     e <- ens[[q]]
     # Mean, standard deviation and z as compare_to_null() in the paper's
     # R/baseline/spectral_baseline.R: z is undefined, and returned as NA, when
-    # the ensemble does not vary.
+    # the ensemble does not vary. The paper tests s > 0. Draws that are equal
+    # in exact arithmetic differ here by rounding in the eigendecomposition,
+    # which leaves a spread of about 1e-16 and would give a z made of noise.
+    # A spread below 1e-10 of the size of the values is therefore read as zero.
     m <- mean(e)
     s <- if (length(e) > 1L) stats::sd(e) else NA_real_
+    varies <- is.finite(s) && s > 1e-10 * max(abs(m), abs(obs[[q]]))
     data.frame(
       metric   = q,
       observed = obs[[q]],
@@ -140,7 +145,7 @@ surrogate_position <- function(A, B = 200, seed = NULL,
       outside  = obs[[q]] < min(e) || obs[[q]] > max(e),
       mean     = m,
       sd       = s,
-      z        = if (is.finite(s) && s > 0) (obs[[q]] - m) / s else NA_real_,
+      z        = if (varies) (obs[[q]] - m) / s else NA_real_,
       stringsAsFactors = FALSE)
   }))
   rownames(metrics) <- NULL

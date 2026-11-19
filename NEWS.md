@@ -59,7 +59,7 @@ a result with one from 0.6.0.
 * `surrogate_position()$metrics` gains a row for `hierarchy_h` and the columns
   `mean`, `sd` and `z`: the ensemble mean, its standard deviation, and the
   observed value less the mean in units of that deviation. `z` is `NA` when the
-  ensemble does not vary.
+  ensemble does not vary beyond rounding.
 
 * `normalising_line()` returns the normalising constant `s`, the rows and
   columns whose total equals it, and whether several lines tie.
@@ -70,7 +70,9 @@ a result with one from 0.6.0.
 
 * `leverage_summary()` returns the line that sets `s`, the stabilisers, the
   amplifiers ranked by v_i u_j, and the eigenvalue condition number, in one
-  object.
+  object. It also returns `strongly_connected`. When that is `FALSE`, links
+  whose derivative is undefined or zero up to rounding are left out of both
+  tables.
 
 ## Changed
 

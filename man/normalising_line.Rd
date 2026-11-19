@@ -36,8 +36,13 @@ The sensitivities on a tied line therefore describe an increase only. A tie
 is common in small matrices of integer ratings, and \code{tied} is returned so
 that it can be reported beside the ranking.
 
-A total counts as equal to \code{s} when it lies within \code{1e-12} of it, the rule
-\code{\link[=sensitivity_matrix]{sensitivity_matrix()}} has applied since its first version.
+The rule is the one \code{\link[=sensitivity_matrix]{sensitivity_matrix()}} has applied since its first
+version, kept as it was so that its results do not move. The rows are
+considered when the largest row total is at least the largest column total,
+and the columns in the opposite case, by exact comparison. Within the side
+considered, a total counts as equal to \code{s} when it lies within \code{1e-12} of
+it. The tolerance is absolute, so it suits ratings on an ordinary scale and
+not a matrix whose totals are themselves of that order.
 }
 
 \section{It does not need the total-relation matrix}{

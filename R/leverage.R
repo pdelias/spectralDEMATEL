@@ -34,8 +34,13 @@
 #' is common in small matrices of integer ratings, and `tied` is returned so
 #' that it can be reported beside the ranking.
 #'
-#' A total counts as equal to `s` when it lies within `1e-12` of it, the rule
-#' [sensitivity_matrix()] has applied since its first version.
+#' The rule is the one [sensitivity_matrix()] has applied since its first
+#' version, kept as it was so that its results do not move. The rows are
+#' considered when the largest row total is at least the largest column total,
+#' and the columns in the opposite case, by exact comparison. Within the side
+#' considered, a total counts as equal to `s` when it lies within `1e-12` of
+#' it. The tolerance is absolute, so it suits ratings on an ordinary scale and
+#' not a matrix whose totals are themselves of that order.
 #'
 #' @section It does not need the total-relation matrix:
 #' When every row and column total is the same, [dematel()] returns `NULL`
@@ -165,6 +170,9 @@ factor_labels <- function(A) {
 #'       derivatives are locally uninformative.}
 #'     \item{`mu_max`}{Coupling. A link on the line is a stabiliser exactly
 #'       when its `weight` is below it.}
+#'     \item{`strongly_connected`}{Whether the influence graph is strongly
+#'       connected. When it is `FALSE` the two tables are not to be relied on;
+#'       see below.}
 #'     \item{`engine_version`}{The package version that produced the summary.}
 #'   }
 #'
@@ -178,6 +186,15 @@ factor_labels <- function(A) {
 #'
 #' A link with a `rating` of zero is listed like any other. The derivative says
 #' what would follow if an influence were introduced there.
+#'
+#' @section A system that is not strongly connected:
+#' The two profiles are then not unique, or hold exact zeros, and the
+#' derivative of some links is undefined or is zero up to rounding. Links whose
+#' derivative is not a finite number, or is below `1e-12` of the largest
+#' derivative in size, are left out of both tables, so the tables can hold
+#' fewer than `n(n - 1)` links. What remains can depend on the numerical
+#' library. `strongly_connected` says when this applies, and `ev_condition` is
+#' not a safeguard there: it can be close to 1 for such a system.
 #'
 #' @section First-order, and bounded:
 #' These are derivatives, so they describe a small change. `ev_condition`
@@ -218,6 +235,15 @@ leverage_summary <- function(A) {
     normalization = at(sens$normalization),
     stringsAsFactors = FALSE)
 
+  # A derivative that is not finite, or that is zero up to rounding, places a
+  # link in neither group. Both arise only when the system is not strongly
+  # connected. In exact arithmetic no link off the line has a negative
+  # derivative, and without this a rounding error of 1e-17 would name one.
+  finite <- is.finite(all_links$total)
+  largest <- if (any(finite)) max(abs(all_links$total[finite])) else 0
+  clear <- finite & abs(all_links$total) > 1e-12 * largest
+  all_links <- all_links[clear, , drop = FALSE]
+
   stab <- all_links[all_links$total < 0, , drop = FALSE]
   stab <- stab[order(stab$total, stab$from, stab$to),
                c("from", "to", "rating", "total", "local", "normalization"),
@@ -235,6 +261,7 @@ leverage_summary <- function(A) {
     amplifiers     = amp,
     ev_condition   = d$ev_condition,
     mu_max         = d$mu_max,
+    strongly_connected = is_irreducible(A),
     engine_version = engine_version()
   )
 }

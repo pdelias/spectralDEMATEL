@@ -242,6 +242,17 @@ test_that("a rows null with nothing to shuffle has a zero spread and z of NA", {
   expect_equal(sp$metrics$mean, sp$metrics$observed, tolerance = 1e-12)
 })
 
+test_that("a spread made of rounding alone gives z of NA, not noise", {
+  # A weighted three-cycle. Every admissible full shuffle is the same cycle
+  # relabelled, so every draw has the same diagnostics in exact arithmetic and
+  # differs by about 1e-16 in floating point. The paper's rule, sd > 0, would
+  # return a z of order one here. Found by the review of 0.7.0.
+  M <- rbind(c(0, 2, 0), c(0, 0, 4), c(2, 0, 0))
+  sp <- surrogate_position(M, B = 30, seed = 7)
+  expect_lt(max(sp$metrics$sd), 1e-12)
+  expect_true(all(is.na(sp$metrics$z)))
+})
+
 test_that("rejection under the rows scheme is bounded like the full scheme", {
   # A weighted directed cycle. Each row holds one rating, and a shuffle within
   # rows keeps the graph strongly connected only when the five ratings form a
@@ -281,4 +292,37 @@ test_that("the type share is counted on the reading that was asked for", {
   # Same draws, so the metric rows agree whatever the reading.
   expect_equal(sp_h$metrics, sp_sd$metrics)
   expect_equal(sp_h$type, structural_type(spectral_diagnostics(fefo))$type)
+})
+
+test_that("a model the two readings type differently is typed by the one asked for", {
+  # FEFO has the same type under both readings, so it cannot show which one
+  # was used. This model of 25 factors has one strong dispatcher: H = 0.176 and
+  # sd = 0.086, hierarchical on H and diffuse on sd.
+  A <- matrix(1, 25, 25)
+  diag(A) <- 0
+  A[1, -1] <- 4
+  d <- spectral_diagnostics(A, checks = FALSE)
+  expect_gt(d$hierarchy_h, 0.10)
+  expect_lt(d$hierarchy_sd, 0.10)
+
+  sp_h  <- surrogate_position(A, B = 30, seed = 3, scheme = "rows")
+  sp_sd <- surrogate_position(A, B = 30, seed = 3, scheme = "rows", reading = "sd")
+  expect_equal(sp_h$type,  "hierarchical-dampened")
+  expect_equal(sp_sd$type, "diffuse-dampened")
+
+  # The draws are classified on the same reading as the observation. Recount
+  # the share from the ensemble on each reading.
+  ens <- surrogate_ensemble(A, B = 30, seed = 3, scheme = "rows")
+  share <- function(field, own) {
+    mean((ens[[field]] > 0.10) == own & ens$mu_max <= 0.5)
+  }
+  expect_equal(sp_h$type_share,  share("hierarchy_h",  TRUE))
+  expect_equal(sp_sd$type_share, share("hierarchy_sd", FALSE))
+  expect_false(isTRUE(all.equal(names(sp_h$type_table), names(sp_sd$type_table))) &&
+                 sp_h$type == sp_sd$type)
+
+  ms_h  <- measurement_stability(A, B = 20, seed = 3)
+  ms_sd <- measurement_stability(A, B = 20, seed = 3, reading = "sd")
+  expect_equal(ms_h$observed_type,  "hierarchical-dampened")
+  expect_equal(ms_sd$observed_type, "diffuse-dampened")
 })

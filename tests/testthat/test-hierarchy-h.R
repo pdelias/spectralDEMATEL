@@ -48,9 +48,10 @@ test_that("H equals (n - 1) sd(u)^2 on every fixture", {
     expect_false(is.null(d), info = nm)
     # Both sides are computed from the same vector, so this is rounding only.
     expect_lt(abs(d$hierarchy_h - (d$n - 1) * d$hierarchy_sd^2), 1e-12)
-    # The definition, written out from the entry profile.
-    u <- d$entry_points
-    expect_lt(abs(d$hierarchy_h - (1 - sum(u)^2 / (d$n * sum(u^2)))), 1e-12)
+    # H does not depend on the length of the profile: the unit-sum profile
+    # gives the same value through the effective number of factors.
+    p <- d$entry_points / sum(d$entry_points)
+    expect_lt(abs(d$hierarchy_h - (1 - (1 / sum(p^2)) / d$n)), 1e-12)
   }
 })
 
@@ -88,10 +89,12 @@ test_that("H stays between zero and 1 - 1/n", {
   }
 })
 
-test_that("H and the Gini coefficient do not change when a vector is replicated", {
+test_that("the Gini coefficient does not change when a vector is replicated", {
   # Ported from section 3 of the paper's R/baseline/test_spectral_baseline.R.
   # The paper's evenness(g) is sum(g)^2 / (length(g) * sum(g^2)), and H is one
-  # minus it.
+  # minus it. evenness() is defined here, so the lines on it check the paper's
+  # identity and not this package. The package enters through gini() only. The
+  # replica test below is the one that exercises hierarchy_h.
   evenness <- function(g) sum(g)^2 / (length(g) * sum(g^2))
   set.seed(20261024)
   for (trial in 1:200) {
@@ -219,6 +222,45 @@ test_that("a reading whose value is missing returns NULL", {
   expect_null(tradeoff_residual(old))
 })
 
+test_that("the margins are scaled by the corpus of the reading", {
+  # Interquartile ranges of the 81-model corpus, from the quantiles the script
+  # computed: coupling 0.8297 - 0.5852, H 0.1101 - 0.0086. A margin scaled by
+  # the ranges of the other corpus would give other numbers and, in the second
+  # case, another nearest cut.
+  s <- structural_type(mk(0.60, sqrt(0.13 / 12), 13))      # H = 0.13
+  expect_equal(s$nearest_cut, "hierarchy")
+  expect_equal(s$nearest_margin_scaled, 0.03 / (0.1101 - 0.0086), tolerance = 1e-9)
+
+  # Coupling margin 0.03, H margin 0.02. On the H corpus the coupling cut is
+  # nearer (0.03 / 0.2445 = 0.123 against 0.02 / 0.1015 = 0.197). On the sd
+  # ranges the order would reverse.
+  s2 <- structural_type(mk(0.53, sqrt(0.12 / 12), 13))     # H = 0.12
+  expect_equal(s2$nearest_cut, "coupling")
+  expect_equal(s2$nearest_margin_scaled, 0.03 / (0.8297 - 0.5852), tolerance = 1e-9)
+})
+
+test_that("the wording of a type is the wording of its reading", {
+  # The four sentences of quadrant_profile() in the revised paper, with H*
+  # written out.
+  h <- vapply(list(mk(0.8, 0.02, 13), mk(0.8, 0.2, 13), mk(0.3, 0.2, 13),
+                   mk(0.3, 0.02, 13)),
+              function(d) structural_type(d)$intervention_logic, character(1))
+  expect_match(h[1], "^Spread effort, appraised on total effects\\.")
+  expect_match(h[2], "^Effort targeted by entry weight, appraised on total effects\\.")
+  expect_match(h[3], "^Effort targeted by entry weight, appraised on direct effects\\.")
+  expect_match(h[4], "^Spread effort, appraised on direct effects\\.")
+  expect_true(all(grepl("the tolerance H\\*", h)))
+  expect_match(h[1], "at most the tolerance H\\* of the attainable value, direct appraisal more than a quarter")
+  expect_match(h[3], "more than the tolerance H\\*, direct appraisal at most a quarter")
+
+  sd_wording <- structural_type(mk(0.8, 0.02, 13), reading = "sd")$intervention_logic
+  expect_match(sd_wording, "^A portfolio of coordinated changes")
+  expect_false(grepl("tolerance", sd_wording))
+
+  expect_match(structural_type(mk(0.8, 0.02, 13))$caveat, "decision model")
+  expect_match(structural_type(mk(0.8, 0.02, 13))$caveat, "not been validated")
+})
+
 test_that("the corpus behind each reading is the one that reading was cut on", {
   s_h  <- structural_type(spectral_diagnostics(fefo))
   s_sd <- structural_type(spectral_diagnostics(fefo), reading = "sd")
@@ -329,7 +371,9 @@ test_that("robustness functions report the reading they classified on", {
   ms_sd <- measurement_stability(fefo, B = 10, seed = 2, reading = "sd")
   expect_equal(ms_sd$hierarchy_reading, "hierarchy_sd")
 
-  # Released 0.6.0, measurement_stability(resl, B = 40, seed = 5).
+  # Released 0.6.0, measurement_stability(resl, B = 40, seed = 5). This model
+  # has the same type under both readings. test-nulls.R holds a model that
+  # separates them.
   old <- measurement_stability(resl, B = 40, seed = 5, reading = "sd")
   expect_equal(old$observed_type, "hierarchical-dampened")
   expect_equal(old$share_same, 1)
@@ -376,14 +420,36 @@ test_that("the H corpus constants are internally consistent", {
   expect_true(nzchar(cp$source$generated_at))
 })
 
-test_that("the H trade-off line reproduces the counts the manuscript reports", {
-  # An independent route to the intercept and the slope. Used alone, the line
-  # assigns a type from coupling. The manuscript reports that this is wrong for
-  # every diffuse-dampened model: at a coupling below one half the line
-  # predicts a hierarchy above the cut. So the line must cross H = 0.10 at a
-  # coupling above 0.5.
-  tr <- spectralDEMATEL:::CORPUS$H$tradeoff
-  crossing <- (0.10 - tr$intercept) / tr$slope
+test_that("the H corpus constants are the ones two routes agree on", {
+  # R/corpus-h.R is generated, and a generated file can be edited by mistake.
+  # These literals pin it. Counts and multipliers are the figures the
+  # manuscript's table of types prints. The line was refitted a second time
+  # during the review of 0.7.0, by an exhaustive search over pairs of models
+  # that does not use quantreg: intercept 0.3741496, slope -0.4358956,
+  # residual standard deviation 0.0750238.
+  cp <- spectralDEMATEL:::CORPUS$H
+  expect_equal(cp$count, c(`diffuse-amplified` = 57L, `hierarchical-dampened` = 13L,
+                           `hierarchical-amplified` = 8L, `diffuse-dampened` = 3L))
+  expect_equal(cp$multiplier, c(`diffuse-amplified` = 4.96,
+                                `hierarchical-dampened` = 1.54,
+                                `hierarchical-amplified` = 2.51,
+                                `diffuse-dampened` = 1.95))
+  # The constants are stored to six decimals, hence 1e-5 relative.
+  expect_equal(cp$tradeoff$intercept, 0.3741496, tolerance = 1e-5)
+  expect_equal(cp$tradeoff$slope,    -0.4358956, tolerance = 1e-5)
+  expect_equal(cp$tradeoff$resid_sd,  0.0750238, tolerance = 1e-5)
+  expect_equal(cp$tradeoff$method, "median regression")
+  expect_equal(cp$alone, list(wrong = 9L, hierarchical_amplified = 3L,
+                              diffuse_dampened = 3L))
+  # Medians the manuscript prints: coupling 0.75, H 0.024, dominance 0.046.
+  expect_equal(round(cp$quantiles$mu_max[3], 2), 0.75)
+  expect_equal(round(cp$quantiles$hierarchy_h[3], 3), 0.024)
+  expect_equal(round(cp$quantiles$dominance[3], 3), 0.046)
+
+  # Used alone, the line predicts a hierarchy above the cut for every model
+  # below a coupling of one half, which is why it is wrong for all three
+  # diffuse-dampened models. It must cross H = 0.10 above 0.5.
+  crossing <- (0.10 - cp$tradeoff$intercept) / cp$tradeoff$slope
   expect_gt(crossing, 0.5)
   expect_lt(crossing, 1)
 })

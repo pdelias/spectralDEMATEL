@@ -180,8 +180,7 @@ diagnostics_core <- function(A, type) {
     lambda_max        = lambda_max,
     indirect_dominant = lambda_max > 1,               # indirect effects exceed direct effects
     dominance         = lam2 / lambda_max,            # |lambda_2|/lambda_max, in [0,1); low = single mode
-    # Three readings of the same idea, in DIFFERENT directions. hierarchy_sd is
-    # the one the source corpus pipeline reports.
+    # Four readings of the same idea, in DIFFERENT directions.
     hierarchy_sd      = stats::sd(u),                 # SD of u (n-1 denom); HIGH = concentrated
     hierarchy_pr      = (sum(u^2)^2 / sum(u^4)) / n,  # participation ratio / n, in (0,1]; LOW = concentrated
     hierarchy_gini    = gini(u),                      # size-free; HIGH = concentrated

@@ -215,14 +215,17 @@ test_that("relation sums to zero and the factors keep their names", {
   expect_identical(prominence_relation(two_by_two)$factor, c("1", "2"))
 })
 
-test_that("a factor in exact balance is neither a net cause nor a net effect", {
-  # Symmetric ratings give equal row and column totals of T.
+test_that("symmetric ratings give a relation of zero up to rounding", {
+  # Symmetric ratings give equal row and column totals of T. The role of such
+  # a factor is decided by rounding, which is why the documentation says to
+  # read the sign with the size. The NA role of an exact zero is not asserted
+  # here: no admissible fixture was found that produces one in floating point.
   A <- matrix(c(0, 1, 2,
                 1, 0, 3,
                 2, 3, 0), 3, 3, byrow = TRUE)
   p <- prominence_relation(A)
   expect_equal(p$relation, c(0, 0, 0), tolerance = 1e-12)
-  expect_true(all(is.na(p$role) | p$role %in% c("net cause", "net effect")))
+  expect_equal(p$dispatch, p$receipt, tolerance = 1e-12)
 })
 
 # ---- leverage_summary ---------------------------------------------------------
@@ -230,7 +233,8 @@ test_that("a factor in exact balance is neither a net cause nor a net effect", {
 test_that("leverage_summary returns the ranking and the condition number together", {
   l <- leverage_summary(fefo)
   expect_named(l, c("line", "stabilisers", "amplifiers", "ev_condition",
-                    "mu_max", "engine_version"))
+                    "mu_max", "strongly_connected", "engine_version"))
+  expect_true(l$strongly_connected)
   expect_identical(l$line, normalising_line(fefo))
   expect_equal(l$ev_condition, spectral_diagnostics(fefo)$ev_condition)
   expect_equal(l$mu_max, spectral_diagnostics(fefo)$mu_max)
@@ -294,4 +298,47 @@ test_that("the two-factor system has one stabiliser and one amplifier", {
   expect_equal(c(l$amplifiers$from, l$amplifiers$to), c(2, 1))
   expect_equal(l$amplifiers$weight, 1 / sqrt(2), tolerance = 1e-12)
   expect_equal(l$mu_max, sqrt(1 / 2), tolerance = 1e-12)
+})
+
+test_that("a system that is not strongly connected gets no rows made of noise", {
+  # Three matrices found by the review of 0.7.0. Each is accepted by dematel()
+  # and is not strongly connected. Before the guard, the first returned tables
+  # filled with NA, the second listed as stabilisers four links off the line
+  # whose derivative was a rounding error of 1e-17, and the third ranked links
+  # of a repeated dominant eigenvalue.
+  cases <- list(
+    one_link = matrix(c(0, 3, 0, 0), 2, 2, byrow = TRUE),
+    zeros_in_profile = rbind(c(0, 0, 0, 3), c(3, 3, 3, 1), c(3, 2, 1, 1),
+                             c(1, 0, 0, 1)),
+    two_blocks = block_diagonal * c(1, 2))
+
+  for (nm in names(cases)) {
+    A <- cases[[nm]]
+    expect_false(is_irreducible(A), info = nm)
+    expect_silent(l <- leverage_summary(A))
+    expect_false(l$strongly_connected, info = nm)
+    for (tab in list(l$stabilisers, l$amplifiers)) {
+      expect_false(anyNA(tab), info = nm)
+    }
+    expect_true(all(l$stabilisers$from %in% l$line$rows |
+                      l$stabilisers$to %in% l$line$cols), info = nm)
+    expect_true(all(l$stabilisers$total < 0), info = nm)
+    expect_true(all(l$amplifiers$total > 0), info = nm)
+  }
+  # The second case: one row sets s, and no stabiliser lies outside it.
+  l <- leverage_summary(cases$zeros_in_profile)
+  expect_identical(l$line$rows, 2L)
+  expect_true(all(l$stabilisers$from == 2L))
+})
+
+test_that("normalising_line applies an absolute tolerance, as documented", {
+  # Row 1 totals 0.1 + 0.2, which is 0.30000000000000004 in floating point, and
+  # column 1 totals 0.3. The rows are considered because their maximum is the
+  # larger by exact comparison, so the column is not reported although it ties
+  # in exact arithmetic. This is the rule of 0.6.0 and it is pinned here so
+  # that it does not change unnoticed.
+  A <- rbind(c(0, 0.1, 0.2), c(0.3, 0, 0), c(0, 0, 0))
+  l <- normalising_line(A)
+  expect_identical(l$rows, c(1L, 2L))
+  expect_identical(l$cols, integer(0))
 })

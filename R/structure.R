@@ -185,7 +185,7 @@ EFFORT_ASSUMPTIONS <- paste(
   "of propagation. With equal costs across the factors, uniform effort forgoes",
   "the share H of the value attainable along the dominant mode. Appraisal on",
   "direct effects alone forgoes the share mu_max^2 whatever the costs, one",
-  "quarter at the coupling cut. Unequal costs change the first share. The",
+  "quarter at a coupling of one half. Unequal costs change the first share. The",
   "model does not cover complementarities between interventions.")
 
 #' Name a system's structural type, and say how firmly
@@ -264,6 +264,12 @@ EFFORT_ASSUMPTIONS <- paste(
 #' explicitly a hypothesis derived from structure and not a validated result.
 #' An interface that renders it as an instruction will be read as stronger than
 #' the evidence. `caveat` exists to be shown, not stored.
+#'
+#' The wording is written for the default cuts. Under `reading = "H"` it speaks
+#' of "the tolerance H*", which is `hierarchy_cut`, and of "a quarter", which is
+#' the share forgone at a coupling of one half. With another `coupling_cut` the
+#' quarter no longer marks the boundary of the type, and
+#' `cuts$coupling_is_default` is `FALSE` to say so.
 #'
 #' @section The effort shares:
 #' Under `reading = "H"` the two cuts have a reading in units of value, inside

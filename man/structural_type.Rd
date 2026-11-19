@@ -96,6 +96,12 @@ presentation decision.
 explicitly a hypothesis derived from structure and not a validated result.
 An interface that renders it as an instruction will be read as stronger than
 the evidence. \code{caveat} exists to be shown, not stored.
+
+The wording is written for the default cuts. Under \code{reading = "H"} it speaks
+of "the tolerance H*", which is \code{hierarchy_cut}, and of "a quarter", which is
+the share forgone at a coupling of one half. With another \code{coupling_cut} the
+quarter no longer marks the boundary of the type, and
+\code{cuts$coupling_is_default} is \code{FALSE} to say so.
 }
 
 \section{The effort shares}{
