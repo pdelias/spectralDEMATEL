@@ -1,3 +1,119 @@
+# spectralDEMATEL 0.7.0
+
+Not yet released. The development version is 0.6.0.9000, and this entry covers
+the first milestone only.
+
+Hierarchy is now classified on H, the reading of the revised source paper. This
+changes the default of five functions. Read the first section before comparing
+a result with one from 0.6.0.
+
+## The default hierarchy reading changed
+
+* `structural_type()`, `type_stability()`, `tradeoff_residual()`,
+  `surrogate_position()` and `measurement_stability()` gain
+  `reading = c("H", "sd")`. The default is `"H"`: the type is read on
+  `hierarchy_h` with a cut of 0.10, against a reference corpus of 81 models.
+  Up to 0.6.0 the type was read on `hierarchy_sd` with a cut of 0.10, against
+  117 systems.
+
+* **A matrix can receive another type than 0.6.0 gave it.** For the unit-length
+  entry profile, H = (n - 1) sd(u)^2. A cut of 0.10 on sd is therefore a cut of
+  0.10 on H only for eleven factors. A larger model can be hierarchical on H
+  and diffuse on sd, and a smaller one the reverse. Both readings run the same
+  way: high means concentrated.
+
+* To reproduce a type from 0.6.0, name the old reading:
+
+  ```r
+  d <- spectral_diagnostics(A)
+  structural_type(d, reading = "sd")
+  ```
+
+  The same argument reproduces `type_stability()`, `tradeoff_residual()`,
+  `surrogate_position()` and `measurement_stability()`. Every value those
+  functions returned in 0.6.0 is returned unchanged. The lists are longer, as
+  described below.
+
+* Every classification states the reading it used. `hierarchy_reading` is
+  `"hierarchy_h"` or `"hierarchy_sd"` in the result of all five functions.
+  `structural_type()` also returns `hierarchy_direction` and `corpus_n`.
+
+## New
+
+* `spectral_diagnostics()` returns `hierarchy_h`,
+  H = 1 - (sum u)^2 / (n sum u^2), beside the three existing readings. It lies
+  in [0, 1 - 1/n) and is **high when influence is concentrated**. A model whose
+  factors are each split into copies keeps its H, while its `hierarchy_sd`
+  falls. `surrogate_ensemble()` returns the same column.
+
+* `structural_type()` returns `effort` under `reading = "H"`: the share of the
+  attainable value that uniform effort forgoes (H), the share that appraisal on
+  direct effects forgoes (mu_max^2), and the assumptions of the decision model
+  in which both hold. The shares are `NA` under `reading = "sd"`.
+
+* `surrogate_ensemble()` and `surrogate_position()` gain
+  `scheme = c("full", "rows")`. `"rows"` shuffles the off-diagonal entries
+  inside each row, which keeps every factor's dispatch total. A seeded
+  `"full"` ensemble draws the same shuffles as 0.6.0.
+
+* `surrogate_position()$metrics` gains a row for `hierarchy_h` and the columns
+  `mean`, `sd` and `z`: the ensemble mean, its standard deviation, and the
+  observed value less the mean in units of that deviation. `z` is `NA` when the
+  ensemble does not vary.
+
+* `normalising_line()` returns the normalising constant `s`, the rows and
+  columns whose total equals it, and whether several lines tie.
+
+* `prominence_relation()` returns dispatch, receipt, prominence, relation and
+  the role of each factor, from the row and column totals of the total-relation
+  matrix.
+
+* `leverage_summary()` returns the line that sets `s`, the stabilisers, the
+  amplifiers ranked by v_i u_j, and the eigenvalue condition number, in one
+  object.
+
+## Changed
+
+* The internal `CORPUS` is now a list of two sets. `CORPUS$sd` holds the
+  constants of 0.6.0, unchanged. `CORPUS$H` holds the aggregates of the
+  81-model corpus: 57 diffuse-amplified, 13 hierarchical-dampened, 8
+  hierarchical-amplified and 3 diffuse-dampened models, with median multipliers
+  of 4.96, 1.54, 2.51 and 1.95. Its trade-off line is the median regression
+  H = 0.374 - 0.436 mu_max, with a residual standard deviation of 0.075. Code
+  that reads `spectralDEMATEL:::CORPUS` as a flat list has to choose a set.
+
+* `sensitivity_matrix()` returns `line`, the result of `normalising_line()`, as
+  a fourth component. `total`, `local` and `normalization` are unchanged.
+
+* `type_stability()` takes `hierarchy_cuts = NULL` and then uses the grid of
+  the reading: 0.05, 0.075, 0.10, 0.125 and 0.20 under `"H"`, and the grid of
+  0.6.0 under `"sd"`.
+
+* `tradeoff_residual()` returns `fit`, the method behind the corpus line:
+  median regression under `"H"`, least squares under `"sd"`.
+
+* `surrogate_ensemble()` carries a `scheme` attribute, and
+  `surrogate_position()` returns `scheme`.
+
+* Arguments that cannot be used return `NULL` and no longer raise an error: an
+  ensemble size that is not a positive number in `surrogate_ensemble()`,
+  `surrogate_position()` and `measurement_stability()`, and a cut that is not a
+  finite number in `structural_type()` and `type_stability()`.
+  `measurement_stability()` with `B = 0` returned a list of `NA` in 0.6.0 and
+  returns `NULL` now.
+
+## Where the package and the revised paper differ
+
+* The paper zeroes the diagonal of a matrix before normalising. This package
+  keeps the diagonal and reports it through the `zero_diagonal` check. A matrix
+  with a non-zero diagonal therefore has a slightly different coupling here
+  than in the paper. Every constant in `CORPUS$H` comes from matrices with a
+  zero diagonal.
+
+* For a model that is not strongly connected the paper admits shuffles that
+  are not strongly connected either. `surrogate_position()` returns `NULL` for
+  such a model, as in 0.6.0.
+
 # spectralDEMATEL 0.6.0
 
 The surrogate rejection loop is bounded.

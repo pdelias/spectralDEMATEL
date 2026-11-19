@@ -7,7 +7,7 @@ Authors@R:
            comment = c(ORCID = "0000-0002-3722-2307"))
 Description: Computes the spectral diagnostics of a DEMATEL influence
     matrix: coupling and the total-effect multiplier, indirect and mode
-    dominance, three readings of hierarchy, the entry and accumulation
+    dominance, four readings of hierarchy, the entry and accumulation
     profiles, the eigenvalue condition number, a permutation surrogate
     baseline, and the closed-form derivative of the dominant eigenvalue in
     every off-diagonal entry. The package computes and returns data. It does
