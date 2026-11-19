@@ -10,9 +10,9 @@ sensitivity_matrix(A)
 \item{A}{A square, non-negative numeric matrix of direct influences.}
 }
 \value{
-A list of three \code{n} by \code{n} matrices, or \code{NULL} when \code{\link[=dematel]{dematel()}} found
-the degenerate case. Diagonals are \code{NA} throughout, since a self-loop is
-not an actionable link.
+A list of three \code{n} by \code{n} matrices and the line that sets \code{s}, or
+\code{NULL} when \code{\link[=dematel]{dematel()}} found the degenerate case. Diagonals are \code{NA}
+throughout, since a self-loop is not an actionable link.
 
 \describe{
 \item{\code{local}}{The effect of the entry on the propagation structure,
@@ -21,6 +21,9 @@ holding the normalising constant fixed. Always positive.}
 constant \code{s}. Non-zero only in the row or column that currently sets
 \code{s}, and always negative there.}
 \item{\code{total}}{Their sum, which is the quantity to rank on.}
+\item{\code{line}}{The result of \code{\link[=normalising_line]{normalising_line()}}: \code{s}, the rows and
+columns whose total equals \code{s}, and whether several lines tie. Every
+non-zero entry of \code{normalization} lies on these lines.}
 }
 }
 \description{

@@ -6,17 +6,19 @@
 # in a paper.
 
 test_that("surrogate_position reports a position for every diagnostic", {
-  sp <- surrogate_position(worked_matrices$fefo_stock_control, B = 30, seed = 1)
+  sp <- surrogate_position(worked_matrices$fefo_stock_control, B = 30, seed = 1, reading = "sd")
 
   # `requested`, `complete` and `attempts` travel with `B` so a caller can tell
   # a share computed over 200 draws from one computed over 7 -- the ensemble is
   # allowed to come back short when the rejection rate is high.
   expect_named(sp, c("metrics", "type", "type_share", "type_table", "B",
-                     "requested", "complete", "attempts"))
+                     "requested", "complete", "attempts", "hierarchy_reading",
+                     "scheme"))
   expect_equal(sp$B, 30)
-  expect_setequal(sp$metrics$metric, c("mu_max", "hierarchy_sd", "dominance"))
+  expect_setequal(sp$metrics$metric, c("mu_max", "hierarchy_sd", "dominance",
+                                       "hierarchy_h"))
   expect_named(sp$metrics, c("metric", "observed", "median", "min", "max",
-                             "share_ge", "outside"))
+                             "share_ge", "outside", "mean", "sd", "z"))
 
   # A position is a proportion, and the summary statistics must bracket.
   expect_true(all(sp$metrics$share_ge >= 0 & sp$metrics$share_ge <= 1))
@@ -37,20 +39,20 @@ test_that("the observed values are the real ones, not redrawn", {
   # observation would be invisible in every other assertion here.
   A <- worked_matrices$fefo_stock_control
   d <- spectral_diagnostics(A, checks = FALSE)
-  sp <- surrogate_position(A, B = 20, seed = 7)
+  sp <- surrogate_position(A, B = 20, seed = 7, reading = "sd")
 
   for (q in c("mu_max", "hierarchy_sd", "dominance")) {
     expect_equal(sp$metrics$observed[sp$metrics$metric == q], d[[q]],
                  tolerance = 1e-12, info = q)
   }
-  expect_equal(sp$type, structural_type(d)$type)
+  expect_equal(sp$type, structural_type(d, reading = "sd")$type)
 })
 
 test_that("the FEFO system is not something its rating distribution implies", {
   # The finding the vignette reports, pinned: coupling above every draw and
   # mode dominance below every draw. If a future change to the shuffle broke
   # this, the surrogate baseline would quietly stop being a baseline.
-  sp <- surrogate_position(worked_matrices$fefo_stock_control, B = 200, seed = 42)
+  sp <- surrogate_position(worked_matrices$fefo_stock_control, B = 200, seed = 42, reading = "sd")
 
   mu  <- sp$metrics[sp$metrics$metric == "mu_max", ]
   dom <- sp$metrics[sp$metrics$metric == "dominance", ]
@@ -67,21 +69,21 @@ test_that("the FEFO system is not something its rating distribution implies", {
 test_that("a seed makes both functions exactly reproducible", {
   A <- worked_matrices$fefo_stock_control
 
-  a <- surrogate_position(A, B = 25, seed = 99)
-  b <- surrogate_position(A, B = 25, seed = 99)
+  a <- surrogate_position(A, B = 25, seed = 99, reading = "sd")
+  b <- surrogate_position(A, B = 25, seed = 99, reading = "sd")
   expect_equal(a$metrics, b$metrics)
   expect_identical(a$type_share, b$type_share)
 
-  x <- measurement_stability(A, B = 25, seed = 99)
-  y <- measurement_stability(A, B = 25, seed = 99)
+  x <- measurement_stability(A, B = 25, seed = 99, reading = "sd")
+  y <- measurement_stability(A, B = 25, seed = 99, reading = "sd")
   expect_identical(x$share_same, y$share_same)
   expect_identical(x$type_table, y$type_table)
 
   # And different seeds do something different, or the seed is not being used.
-  z <- measurement_stability(A, B = 25, seed = 100)
+  z <- measurement_stability(A, B = 25, seed = 100, reading = "sd")
   expect_false(isTRUE(all.equal(x$type_table, z$type_table)) &&
                  isTRUE(all.equal(a$metrics$share_ge,
-                                  surrogate_position(A, B = 25, seed = 100)$metrics$share_ge)))
+                                  surrogate_position(A, B = 25, seed = 100, reading = "sd")$metrics$share_ge)))
 })
 
 test_that("measurement_stability keeps ratings inside the scale", {
@@ -109,10 +111,10 @@ test_that("recorded zeros are left alone by default and disturbed on request", {
   A <- worked_matrices$resilience_capabilities   # has genuine zeros
   expect_gt(sum(A == 0), 0)
 
-  d <- measurement_stability(A, B = 15, seed = 5, perturb = "nonzero")
+  d <- measurement_stability(A, B = 15, seed = 5, perturb = "nonzero", reading = "sd")
   expect_equal(d$perturb, "nonzero")
 
-  a <- measurement_stability(A, B = 15, seed = 5, perturb = "all")
+  a <- measurement_stability(A, B = 15, seed = 5, perturb = "all", reading = "sd")
   expect_equal(a$perturb, "all")
 
   # Both must report which choice was made, since it changes the answer.
@@ -125,7 +127,7 @@ test_that("a type far from every boundary survives its own measurement noise", {
   # half a rating point cannot move it. If this ever fails, either the
   # perturbation grew teeth or the classification became unstable.
   ms <- measurement_stability(worked_matrices$fefo_stock_control,
-                              tolerance = 0.5, B = 100, seed = 11)
+                              tolerance = 0.5, B = 100, seed = 11, reading = "sd")
   expect_equal(ms$observed_type, "diffuse-amplified")
   expect_equal(ms$share_same, 1)
   expect_equal(ms$B_admissible, 100)
@@ -153,7 +155,7 @@ test_that("a type sitting on the boundary is reported as the coin flip it is", {
   d <- spectral_diagnostics(borderline, checks = FALSE)
   expect_equal(d$hierarchy_sd, 0.10, tolerance = 1e-3)   # on the cut
 
-  ms <- measurement_stability(borderline, tolerance = 0.5, B = 200, seed = 3)
+  ms <- measurement_stability(borderline, tolerance = 0.5, B = 200, seed = 3, reading = "sd")
   expect_gt(ms$share_same, 0.25)
   expect_lt(ms$share_same, 0.75)
   expect_gt(length(ms$type_table), 1)   # it really does land both sides
@@ -169,8 +171,8 @@ test_that("more noise does move a type that sits at a moderate distance", {
                    1, 1, 1, 1, 0), 5, 5, byrow = TRUE)
   storage.mode(core) <- "double"
 
-  small <- measurement_stability(core, tolerance = 0.25, B = 200, seed = 3)
-  large <- measurement_stability(core, tolerance = 1.00, B = 200, seed = 3)
+  small <- measurement_stability(core, tolerance = 0.25, B = 200, seed = 3, reading = "sd")
+  large <- measurement_stability(core, tolerance = 1.00, B = 200, seed = 3, reading = "sd")
 
   expect_equal(small$share_same, 1)
   expect_lt(large$share_same, 1)
@@ -179,18 +181,18 @@ test_that("more noise does move a type that sits at a moderate distance", {
 
 test_that("both return NULL rather than failing on an undiagnosable matrix", {
   degenerate <- matrix(2, 4, 4)
-  expect_null(surrogate_position(degenerate, B = 5))
-  expect_null(measurement_stability(degenerate, B = 5))
+  expect_null(surrogate_position(degenerate, B = 5, reading = "sd"))
+  expect_null(measurement_stability(degenerate, B = 5, reading = "sd"))
 
   # surrogate_position also declines a matrix whose surrogates cannot preserve
   # connectivity, rather than spinning in the rejection loop.
-  expect_null(surrogate_position(worked_matrices$resilience_capabilities, B = 5))
+  expect_null(surrogate_position(worked_matrices$resilience_capabilities, B = 5, reading = "sd"))
 })
 
 test_that("nothing here raises a condition for a matrix a user can paste", {
   for (A in list(matrix(1:6, 2, 3), matrix(2, 4, 4),
                  matrix(c(0, -1, 1, 0), 2, 2))) {
-    expect_silent(surrogate_position(A, B = 3))
-    expect_silent(measurement_stability(A, B = 3))
+    expect_silent(surrogate_position(A, B = 3, reading = "sd"))
+    expect_silent(measurement_stability(A, B = 3, reading = "sd"))
   }
 })

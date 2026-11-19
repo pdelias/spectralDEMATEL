@@ -11,7 +11,8 @@ test_that("the ensemble has the requested shape", {
   expect_s3_class(ens, "data.frame")
   expect_equal(nrow(ens), 25)
   expect_named(ens, c("mu_max", "lambda_max", "dominance",
-                      "hierarchy_sd", "hierarchy_pr", "hierarchy_gini"))
+                      "hierarchy_sd", "hierarchy_pr", "hierarchy_gini",
+                      "hierarchy_h"))
   expect_true(all(vapply(ens, function(x) all(is.finite(x)), logical(1))))
 })
 
@@ -160,7 +161,7 @@ test_that("the cap does not change the draws it never truncates", {
 })
 
 test_that("surrogate_position reports a short ensemble instead of hiding it", {
-  sp <- surrogate_position(sparse_matrix(), B = 200, seed = 1, max_attempts = 400)
+  sp <- surrogate_position(sparse_matrix(), B = 200, seed = 1, max_attempts = 400, reading = "sd")
 
   expect_false(sp$complete)
   expect_equal(sp$requested, 200)
@@ -172,5 +173,5 @@ test_that("surrogate_position reports a short ensemble instead of hiding it", {
 })
 
 test_that("surrogate_position returns NULL when no shuffle is admissible", {
-  expect_null(surrogate_position(cycle_matrix(), B = 200, seed = 1, max_attempts = 500))
+  expect_null(surrogate_position(cycle_matrix(), B = 200, seed = 1, max_attempts = 500, reading = "sd"))
 })

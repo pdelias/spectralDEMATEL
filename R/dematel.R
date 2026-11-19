@@ -60,10 +60,12 @@ dematel <- function(A) {
   mu_max <- max(Re(eigen(D, only.values = TRUE)$values))
   if (!is.finite(mu_max) || mu_max >= 1 - 1e-12) return(invisible(NULL))
 
-  T <- tryCatch(D %*% solve(diag(nrow(A)) - D), error = function(e) NULL)
-  if (is.null(T) || !all(is.finite(T))) return(invisible(NULL))
+  total <- tryCatch(D %*% solve(diag(nrow(A)) - D), error = function(e) NULL)
+  if (is.null(total) || !all(is.finite(total))) return(invisible(NULL))
 
-  list(A = A, s = s, D = D, T = T)
+  # The element keeps the name T, the standard symbol of the total-relation
+  # matrix. Only the local variable was renamed.
+  list(A = A, s = s, D = D, T = total)
 }
 
 #' Strong connectivity of the influence graph (assumption A2)

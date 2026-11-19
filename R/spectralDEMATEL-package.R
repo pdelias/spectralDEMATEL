@@ -29,10 +29,12 @@
 #' Two definitions here invert easily and have been inverted before, in reviewed
 #' code, while producing entirely plausible output.
 #'
-#' Hierarchy has three readings and they do not run the same way.
-#' `hierarchy_sd` and `hierarchy_gini` are **high** when influence enters at a
-#' few factors; `hierarchy_pr` is **low**. Anything displaying one of them must
-#' say which reading and which direction.
+#' Hierarchy has four readings and they do not run the same way.
+#' `hierarchy_h`, `hierarchy_sd` and `hierarchy_gini` are **high** when
+#' influence enters at a few factors. `hierarchy_pr` is **low**. Anything
+#' displaying one of them must say which reading and which direction. Two of
+#' them classify, `hierarchy_h` by default and `hierarchy_sd` on request, and
+#' every classification states which one it used.
 #'
 #' Mode dominance takes the **largest-modulus** subdominant eigenvalue, not the
 #' largest real part. For a non-negative total-relation matrix the negative end

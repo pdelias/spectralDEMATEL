@@ -40,10 +40,12 @@ WebAssembly, without a second implementation.
 Two definitions here invert easily and have been inverted before, in reviewed
 code, while producing entirely plausible output.
 
-Hierarchy has three readings and they do not run the same way.
-\code{hierarchy_sd} and \code{hierarchy_gini} are \strong{high} when influence enters at a
-few factors; \code{hierarchy_pr} is \strong{low}. Anything displaying one of them must
-say which reading and which direction.
+Hierarchy has four readings and they do not run the same way.
+\code{hierarchy_h}, \code{hierarchy_sd} and \code{hierarchy_gini} are \strong{high} when
+influence enters at a few factors. \code{hierarchy_pr} is \strong{low}. Anything
+displaying one of them must say which reading and which direction. Two of
+them classify, \code{hierarchy_h} by default and \code{hierarchy_sd} on request, and
+every classification states which one it used.
 
 Mode dominance takes the \strong{largest-modulus} subdominant eigenvalue, not the
 largest real part. For a non-negative total-relation matrix the negative end

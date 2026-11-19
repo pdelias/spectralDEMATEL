@@ -4,7 +4,13 @@
 \alias{surrogate_ensemble}
 \title{Permutation surrogate baseline}
 \usage{
-surrogate_ensemble(A, B = 200, seed = NULL, max_attempts = 50L * B)
+surrogate_ensemble(
+  A,
+  B = 200,
+  seed = NULL,
+  max_attempts = 50L * B,
+  scheme = c("full", "rows")
+)
 }
 \arguments{
 \item{A}{A square, non-negative numeric matrix of direct influences.}
@@ -19,30 +25,54 @@ alone.}
 \item{max_attempts}{Maximum number of shuffles to draw before giving up,
 default \code{50 * B}. Reaching it returns a short ensemble rather than
 continuing; see the section below.}
+
+\item{scheme}{What the shuffle holds fixed. \code{"full"}, the default, permutes
+all off-diagonal entries, keeping the number of factors, the density and
+the multiset of ratings. \code{"rows"} permutes the off-diagonal entries inside
+each row, which also keeps every factor's dispatch total and the ratings
+it gave.}
 }
 \value{
 A data frame with columns \code{mu_max}, \code{lambda_max}, \code{dominance},
-\code{hierarchy_sd}, \code{hierarchy_pr} and \code{hierarchy_gini}, carrying three
-attributes: \code{requested} (the \code{B} asked for), \code{attempts} (shuffles drawn)
-and \code{complete} (whether \code{B} rows were reached). Returns \code{NULL} if no draw
-was admissible, matching \code{\link[=spectral_diagnostics]{spectral_diagnostics()}} on inadmissible input.
+\code{hierarchy_sd}, \code{hierarchy_pr}, \code{hierarchy_gini} and \code{hierarchy_h},
+carrying four attributes: \code{requested} (the \code{B} asked for), \code{attempts}
+(shuffles drawn), \code{complete} (whether \code{B} rows were reached) and \code{scheme}.
+Returns \code{NULL} if no draw was admissible, if \code{A} cannot be shuffled, or if
+\code{B} is not a positive number, matching \code{\link[=spectral_diagnostics]{spectral_diagnostics()}} on
+inadmissible input.
 
 \strong{The row count is not guaranteed to be \code{B}.} Read \code{complete} before
 reporting anything derived from the ensemble.
+
+Of the four hierarchy columns, \code{hierarchy_h}, \code{hierarchy_sd} and
+\code{hierarchy_gini} are \strong{high when influence is concentrated} and
+\code{hierarchy_pr} is \strong{low}.
 }
 \description{
-Shuffles the off-diagonal entries of \code{A} while holding the number of factors,
-the density and the exact multiset of entry values fixed, then recomputes the
-diagnostics. Repeating this gives a null distribution against which an
-observed diagnostic can be read.
+Shuffles the off-diagonal entries of \code{A} and recomputes the diagnostics.
+Repeating this gives a null distribution against which an observed
+diagnostic can be read. Two schemes are available, and they hold different
+things fixed.
 }
 \details{
-The question it answers is the one a single number cannot: how much of the
-structure is something the analyst built, and how much follows from the
-entry distribution on its own. A system whose coupling sits in the middle of
-its own surrogate ensemble has coupling because of how its ratings were
-distributed, not because of how its factors were connected.
+The question a null answers is the one a single number cannot: how much of
+the structure is something the analyst built, and how much follows from the
+ratings on their own. A system whose coupling sits in the middle of its own
+surrogate ensemble has coupling because of how its ratings were distributed,
+and not because of how its factors were connected.
 }
+\section{The two schemes ask different questions}{
+
+The full shuffle destroys everything except the ratings themselves. An
+observation outside it says that the arrangement of the ratings matters. The
+shuffle within rows keeps how much each factor dispatches and destroys only
+where it sends it. An observation outside that null says that the targets of
+influence matter, beyond the fact that some factors dispatch more than
+others. A diagnostic can sit outside the first and inside the second.
+
+A seeded \code{"full"} ensemble draws the same shuffles as version 0.6.0.
+}
+
 \section{Cost}{
 
 This is the one part of the package that is not instant. Each draw is an
@@ -62,11 +92,11 @@ cap, which on such a matrix does not terminate in any useful time. In a
 script that is a long wait; compiled to WebAssembly it is a frozen browser
 tab with no way to cancel, reachable by pasting a sparse matrix.
 
-So the loop is bounded. Hitting the bound is not an error and does not throw:
-the function returns the draws it did get and says so in \code{complete}, on the
-principle that a short null distribution the caller knows about is more
-useful than no answer and far more useful than a hang. \code{50 * B} tolerates an
-acceptance rate down to about 2\% before it bites.
+So the loop is bounded, under both schemes. Hitting the bound is not an
+error and does not throw: the function returns the draws it did get and says
+so in \code{complete}, on the principle that a short null distribution the caller
+knows about is more useful than no answer and far more useful than a hang.
+\code{50 * B} tolerates an acceptance rate down to about 2\% before it bites.
 }
 
 \examples{
@@ -78,6 +108,10 @@ if (is_irreducible(A)) {
   ens <- surrogate_ensemble(A, B = 20, seed = 42)
   observed <- spectral_diagnostics(A)$mu_max
   mean(ens$mu_max >= observed)  # where the observation sits in the null
+
+  # The same question with every dispatch total held fixed:
+  rows <- surrogate_ensemble(A, B = 20, seed = 42, scheme = "rows")
+  mean(rows$mu_max >= observed)
 }
 
 }

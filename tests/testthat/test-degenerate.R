@@ -111,3 +111,101 @@ test_that("every diagnosis records the engine version", {
   expect_identical(spectral_diagnostics(matrix(2, 4, 4))$engine_version,
                    d$engine_version)
 })
+
+# ---- added in 0.7.0 -----------------------------------------------------------
+
+# Everything a user can paste, for the exports added in 0.7.0 and for the
+# arguments that the older ones gained.
+pasted <- function() {
+  list(
+    not_square   = matrix(1:6, 2, 3),
+    negative     = matrix(c(0, -1, 1, 0), 2, 2),
+    not_a_matrix = as.data.frame(matrix(1, 2, 2)),
+    has_na       = matrix(c(0, NA, 1, 0), 2, 2),
+    infinite     = matrix(c(0, Inf, 1, 0), 2, 2),
+    all_zero     = matrix(0, 4, 4),
+    uniform      = matrix(2, 4, 4),
+    character    = matrix(letters[1:4], 2, 2),
+    empty        = matrix(numeric(0), 0, 0),
+    one_factor   = matrix(3, 1, 1),
+    a_vector     = c(1, 2, 3),
+    null         = NULL,
+    disconnected = block_diagonal * c(1, 2)
+  )
+}
+
+test_that("the 0.7.0 exports raise nothing for anything a user can paste", {
+  for (nm in names(pasted())) {
+    A <- pasted()[[nm]]
+    expect_silent(normalising_line(A))
+    expect_silent(prominence_relation(A))
+    expect_silent(leverage_summary(A))
+    expect_silent(sensitivity_matrix(A))
+    for (scheme in c("full", "rows")) {
+      expect_silent(surrogate_ensemble(A, B = 3, seed = 1, scheme = scheme))
+      for (reading in c("H", "sd")) {
+        expect_silent(surrogate_position(A, B = 3, seed = 1, scheme = scheme,
+                                         reading = reading))
+      }
+    }
+    for (reading in c("H", "sd")) {
+      expect_silent(measurement_stability(A, B = 3, seed = 1, reading = reading))
+      d <- spectral_diagnostics(A)
+      expect_silent(structural_type(d, reading = reading))
+      expect_silent(type_stability(d, reading = reading))
+      expect_silent(tradeoff_residual(d, reading = reading))
+    }
+  }
+})
+
+test_that("the 0.7.0 exports return NULL where there is nothing to compute", {
+  cannot <- c("not_square", "negative", "not_a_matrix", "has_na", "infinite",
+              "all_zero", "character", "empty", "a_vector", "null")
+  for (nm in cannot) {
+    A <- pasted()[[nm]]
+    expect_null(normalising_line(A), info = nm)
+    expect_null(prominence_relation(A), info = nm)
+    expect_null(leverage_summary(A), info = nm)
+    expect_null(surrogate_ensemble(A, B = 3, seed = 1), info = nm)
+    expect_null(surrogate_ensemble(A, B = 3, seed = 1, scheme = "rows"), info = nm)
+  }
+
+  # Uniform totals: T is undefined, so there is no prominence and no leverage.
+  # The line is still a fact about the matrix.
+  A <- pasted()$uniform
+  expect_null(prominence_relation(A))
+  expect_null(leverage_summary(A))
+  expect_false(is.null(normalising_line(A)))
+})
+
+test_that("a disconnected system still has prominence, a line and a leverage summary", {
+  # As with the diagnostics, the engine does not refuse. The checks say what
+  # the numbers are worth.
+  A <- pasted()$disconnected
+  expect_s3_class(prominence_relation(A), "data.frame")
+  expect_type(normalising_line(A), "list")
+  expect_type(leverage_summary(A), "list")
+})
+
+test_that("an ensemble size that makes no sense returns NULL", {
+  A <- worked_matrices$fefo_stock_control
+  for (B in list(0, -1, NA, "ten", NULL, c(2, 3))) {
+    expect_silent(out <- surrogate_ensemble(A, B = B, seed = 1))
+    expect_null(out)
+    expect_silent(out <- surrogate_ensemble(A, B = B, seed = 1, scheme = "rows"))
+    expect_null(out)
+  }
+})
+
+test_that("a cut that is not a number returns NULL", {
+  d <- spectral_diagnostics(worked_matrices$fefo_stock_control)
+  for (reading in c("H", "sd")) {
+    expect_silent(out <- structural_type(d, hierarchy_cut = NA, reading = reading))
+    expect_null(out)
+    expect_silent(out <- structural_type(d, hierarchy_cut = "high", reading = reading))
+    expect_null(out)
+    expect_silent(out <- type_stability(d, hierarchy_cuts = character(0),
+                                        reading = reading))
+    expect_null(out)
+  }
+})

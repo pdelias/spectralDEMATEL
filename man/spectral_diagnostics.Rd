@@ -47,6 +47,12 @@ unit-norm right eigenvector. \strong{HIGH means concentrated.}}
 direction to the other two.}
 \item{\code{hierarchy_gini}}{Hierarchy as the Gini coefficient of the same
 vector. \strong{HIGH means concentrated.} Size-free.}
+\item{\code{hierarchy_h}}{Hierarchy as \eqn{H = 1 - N_{eff}/n}, with
+\eqn{N_{eff} = (\sum u_i)^2 / \sum u_i^2} the effective number of
+factors. In \eqn{[0, 1 - 1/n)}. \strong{HIGH means concentrated.}
+Size-normalised: a model with every factor split into copies keeps
+its value. This is the reading \code{\link[=structural_type]{structural_type()}} classifies on by
+default.}
 \item{\code{entry_points}}{Right eigenvector, unit 2-norm. Weights each factor
 by the influence it injects: where to apply pressure.}
 \item{\code{accumulation}}{Left eigenvector, unit 2-norm. Weights each factor
@@ -80,18 +86,22 @@ before. When one moves again, old diagnoses must remain interpretable rather
 than silently mean something new.
 }
 
-\section{The three hierarchy readings run in different directions}{
+\section{The four hierarchy readings run in different directions}{
 
-\code{hierarchy_sd} and \code{hierarchy_gini} are high when influence enters at a few
-factors. \code{hierarchy_pr} is \strong{low} when influence enters at a few factors.
+\code{hierarchy_h}, \code{hierarchy_sd} and \code{hierarchy_gini} are high when influence
+enters at a few factors. \code{hierarchy_pr} is \strong{low} when influence enters at
+a few factors.
 This project has inverted the direction once already, in code that had been
 reviewed, and the mistake produced entirely plausible output. Anything
 displaying one of these must state which reading it used and which way it
 runs.
 
-\code{hierarchy_sd} is the reading the source paper's corpus analysis uses
-throughout, so it is the one behind every corpus-level result including the
-coupling-hierarchy trade-off.
+\code{hierarchy_h} and \code{hierarchy_sd} are tied by an identity. For the unit-length
+entry profile, \eqn{H = (n - 1)\,\mathrm{sd}(u)^2}. The two therefore order
+models of the same size identically and differ across sizes. The revised
+source paper classifies on \code{hierarchy_h}. Its first version, and this package
+up to 0.6.0, classified on \code{hierarchy_sd}, which remains available through
+\code{reading = "sd"} in \code{\link[=structural_type]{structural_type()}}.
 }
 
 \section{Mode dominance uses the largest modulus}{

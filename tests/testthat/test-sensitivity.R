@@ -104,7 +104,7 @@ test_that("sensitivity is available for both worked matrices", {
   for (nm in names(worked_matrices)) {
     s <- sensitivity_matrix(worked_matrices[[nm]])
     expect_type(s, "list")
-    expect_named(s, c("total", "local", "normalization"))
+    expect_named(s, c("total", "local", "normalization", "line"))
     expect_equal(dim(s$total), rep(nrow(worked_matrices[[nm]]), 2))
   }
 })

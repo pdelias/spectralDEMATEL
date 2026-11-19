@@ -11,7 +11,8 @@ measurement_stability(
   seed = NULL,
   perturb = c("nonzero", "all"),
   coupling_cut = STRUCTURE_CUTS$coupling,
-  hierarchy_cut = STRUCTURE_CUTS$hierarchy
+  hierarchy_cut = STRUCTURE_CUTS$hierarchy,
+  reading = c("H", "sd")
 )
 }
 \arguments{
@@ -29,12 +30,17 @@ generally taken to carry.}
 recorded zeros alone; \code{"all"} disturbs every off-diagonal entry.}
 
 \item{coupling_cut, hierarchy_cut}{Passed to \code{\link[=structural_type]{structural_type()}}.}
+
+\item{reading}{Which hierarchy reading classifies, as in \code{\link[=structural_type]{structural_type()}}:
+\code{"H"}, the default, or \code{"sd"}, which reproduces version 0.6.0. \strong{Both run
+the same way: high means concentrated.}}
 }
 \value{
 A list, or \code{NULL} when the matrix cannot be diagnosed:
 \code{observed_type}, \code{share_same} (proportion of perturbed matrices keeping
 that type), \code{type_table}, \code{B_admissible} (draws that could be diagnosed at
-all), \code{tolerance} and \code{perturb}.
+all), \code{tolerance}, \code{perturb} and \code{hierarchy_reading} (\code{"hierarchy_h"} or
+\code{"hierarchy_sd"}).
 }
 \description{
 Perturbs the influence ratings by a stated tolerance and recomputes the

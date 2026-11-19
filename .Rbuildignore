@@ -13,3 +13,6 @@
 # repository" button. R CMD check does not expect it in the tarball, and this
 # package's CI fails on any NOTE. inst/CITATION is the one R itself reads.
 ^CITATION\.cff$
+# Written by testthat when a test fails. Never part of the package.
+^tests/testthat/_problems$
+^tests/testthat/testthat-problems\.rds$
