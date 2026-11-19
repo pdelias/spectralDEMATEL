@@ -18,9 +18,9 @@
 #'
 #' @param A A square, non-negative numeric matrix of direct influences.
 #'
-#' @return A list of three `n` by `n` matrices, or `NULL` when [dematel()] found
-#'   the degenerate case. Diagonals are `NA` throughout, since a self-loop is
-#'   not an actionable link.
+#' @return A list of three `n` by `n` matrices and the line that sets `s`, or
+#'   `NULL` when [dematel()] found the degenerate case. Diagonals are `NA`
+#'   throughout, since a self-loop is not an actionable link.
 #'
 #'   \describe{
 #'     \item{`local`}{The effect of the entry on the propagation structure,
@@ -29,6 +29,9 @@
 #'       constant `s`. Non-zero only in the row or column that currently sets
 #'       `s`, and always negative there.}
 #'     \item{`total`}{Their sum, which is the quantity to rank on.}
+#'     \item{`line`}{The result of [normalising_line()]: `s`, the rows and
+#'       columns whose total equals `s`, and whether several lines tie. Every
+#'       non-zero entry of `normalization` lies on these lines.}
 #'   }
 #'
 #' @section Why the split is not decoration:
@@ -60,18 +63,18 @@
 #' @export
 sensitivity_matrix <- function(A) {
   m <- dematel(A); if (is.null(m)) return(NULL)
-  n <- nrow(A); s <- m$s; T <- m$T
-  eT <- eigen(T);  k  <- which.max(Re(eT$values));  u <- Re(eT$vectors[, k])
-  eTt <- eigen(t(T)); kl <- which.max(Re(eTt$values)); v <- Re(eTt$vectors[, kl])
+  n <- nrow(A); s <- m$s; Tm <- m$T
+  eT <- eigen(Tm);  k  <- which.max(Re(eT$values));  u <- Re(eT$vectors[, k])
+  eTt <- eigen(t(Tm)); kl <- which.max(Re(eTt$values)); v <- Re(eTt$vectors[, kl])
   v <- v / sum(v * u)
-  S <- diag(n) + T
+  S <- diag(n) + Tm
   C <- as.numeric(t(v) %*% S %*% A %*% S %*% u)
   local <- outer(as.vector(t(v) %*% S), as.vector(S %*% u)) / s
-  rs <- rowSums(A); cs <- colSums(A)
+  line <- normalising_line(A)
   norm_eff <- matrix(0, n, n)
-  if (max(rs) >= max(cs)) norm_eff[abs(rs - s) < 1e-12, ] <- -C / s^2
-  if (max(cs) >= max(rs)) norm_eff[, abs(cs - s) < 1e-12] <- -C / s^2
+  norm_eff[line$rows, ] <- -C / s^2
+  norm_eff[, line$cols] <- -C / s^2
   total <- local + norm_eff
   diag(local) <- diag(norm_eff) <- diag(total) <- NA  # diagonal not actionable
-  list(total = total, local = local, normalization = norm_eff)
+  list(total = total, local = local, normalization = norm_eff, line = line)
 }

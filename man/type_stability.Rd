@@ -6,32 +6,40 @@
 \usage{
 type_stability(
   d,
-  hierarchy_cuts = c(0.075, 0.09, 0.1, 0.11),
-  coupling_cut = STRUCTURE_CUTS$coupling
+  hierarchy_cuts = NULL,
+  coupling_cut = STRUCTURE_CUTS$coupling,
+  reading = c("H", "sd")
 )
 }
 \arguments{
 \item{d}{A diagnostics list from \code{\link[=spectral_diagnostics]{spectral_diagnostics()}}.}
 
-\item{hierarchy_cuts}{Cuts to try. The default spans the range the source
-paper's supplement re-runs its whole corpus assignment across.}
+\item{hierarchy_cuts}{Cuts to try, on the scale of \code{reading}. \code{NULL}, the
+default, uses the grid of the reading: 0.05, 0.075, 0.10, 0.125 and 0.20
+under \code{"H"} (the ends of the band the source paper reports, the cut, and a
+quarter either side of it), and 0.075, 0.09, 0.10 and 0.11 under \code{"sd"}
+(the grid of version 0.6.0).}
 
 \item{coupling_cut}{Held fixed: it is not a free parameter.}
+
+\item{reading}{Which hierarchy reading classifies, as in \code{\link[=structural_type]{structural_type()}}.
+\strong{Both run the same way: high means concentrated.}}
 }
 \value{
-A list, or \code{NULL} when the diagnostics could not be computed:
+A list, or \code{NULL} when the diagnostics could not be computed or the
+cuts are not finite numbers:
 \describe{
 \item{\code{by_cut}}{Data frame of \code{cut} and the resulting \code{type}.}
 \item{\code{stable}}{\code{TRUE} when every cut gives the same type.}
 \item{\code{flips_between}}{The two adjacent cuts the type changes between,
 or \code{NA} when it does not change.}
+\item{\code{hierarchy_reading}}{\code{"hierarchy_h"} or \code{"hierarchy_sd"}.}
 }
 }
 \description{
-The hierarchy cut is a recommendation rather than a fitted constant, so the
-honest question is not "which side is this system on" but "does the answer
-change across the range anyone might reasonably choose". For one matrix that
-is a handful of classifications and a sentence.
+The hierarchy cut is a recommendation, so the question that matters is
+whether the type changes across the range a user might reasonably choose.
+For one matrix that is a handful of classifications and a sentence.
 }
 \examples{
 d <- spectral_diagnostics(worked_matrices$fefo_stock_control)

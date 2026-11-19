@@ -4,30 +4,46 @@
 \alias{tradeoff_residual}
 \title{Where the system sits against the corpus coupling-hierarchy trade-off}
 \usage{
-tradeoff_residual(d)
+tradeoff_residual(d, reading = c("H", "sd"))
 }
 \arguments{
 \item{d}{A diagnostics list from \code{\link[=spectral_diagnostics]{spectral_diagnostics()}}.}
+
+\item{reading}{Which hierarchy reading, and with it which corpus line: the
+line of the 81-model corpus on \code{hierarchy_h} under \code{"H"}, the default, or
+the line of the 117-system corpus on \code{hierarchy_sd} under \code{"sd"}. \strong{Both
+readings run the same way: high means concentrated.}}
 }
 \value{
 A list, or \code{NULL} when the diagnostics could not be computed:
 \code{expected} (hierarchy predicted from this system's coupling), \code{residual},
 \code{residual_sd} (that residual in units of the corpus residual standard
-deviation), \code{direction} (\code{"above"} or \code{"below"} the line), and \code{caveat}.
+deviation), \code{direction} (\code{"above"} or \code{"below"} the line), \code{caveat},
+\code{hierarchy_reading} and \code{fit} (how the corpus line was fitted).
 }
 \description{
-Coupling and hierarchy oppose each other across the reference corpus,
-coupling accounting for about 59\% of the variation in hierarchy. A system's
-residual from that relation says whether it has unusually concentrated
-leverage for how strongly it is coupled.
+Coupling and hierarchy oppose each other across the reference corpus. A
+system's residual from that relation says whether it has unusually
+concentrated influence for how strongly it is coupled.
 }
+\section{The two lines}{
+
+Under \code{"H"} the line is the median regression of the revised source paper,
+\eqn{H = 0.374 - 0.436\,\mu_{max}}, and coupling accounts for about 75\% of
+the variation in H. The line is straight and H is not negative, so above a
+coupling of about 0.86 \code{expected} falls below zero. Read the residual there
+as a distance from the line and not from a typical model. Under \code{"sd"} the
+line is the least-squares fit of version 0.6.0, with coupling accounting for
+about 59\% of the variation.
+}
+
 \section{A supplement, never a substitute}{
 
-Used on its own to assign types, the trade-off is wrong for 19 of the 117
-reference systems, and wrong where it counts: 10 systems with a dominant
-point of entry would be told to spread their effort, and all 8 without one
-would be sent to look for one. Read this beside the computed hierarchy, never
-instead of it.
+Used on its own to assign types, the trade-off is wrong for 9 of the 81
+reference models on H: 3 hierarchical-amplified models would be told to
+spread their effort, and all 3 diffuse-dampened models would be classed as
+hierarchical. On sd it is wrong for 19 of the 117 reference systems. Read
+this beside the computed hierarchy, never instead of it.
 }
 
 \examples{

@@ -7,34 +7,43 @@
 structural_type(
   d,
   coupling_cut = STRUCTURE_CUTS$coupling,
-  hierarchy_cut = STRUCTURE_CUTS$hierarchy
+  hierarchy_cut = STRUCTURE_CUTS$hierarchy,
+  reading = c("H", "sd")
 )
 }
 \arguments{
 \item{d}{A diagnostics list from \code{\link[=spectral_diagnostics]{spectral_diagnostics()}}.}
 
 \item{coupling_cut}{Where amplified meets dampened. The default 0.5 is the
-indirect-dominance threshold and follows from the algebra; changing it
+indirect-dominance threshold and follows from the algebra. Changing it
 makes the type mean something other than what the corpus results mean.}
 
-\item{hierarchy_cut}{Where hierarchical meets diffuse. The default 0.10 is a
-recommendation, not a fitted constant, and a user may move it.}
+\item{hierarchy_cut}{Where hierarchical meets diffuse, on the scale of
+\code{reading}. The default 0.10 is a recommendation under both readings and a
+user may move it.}
+
+\item{reading}{Which hierarchy reading classifies. \code{"H"}, the default, uses
+\code{hierarchy_h}. \code{"sd"} uses \code{hierarchy_sd} and reproduces the types of
+version 0.6.0 and earlier. \strong{Both run the same way: high means
+concentrated.}}
 }
 \value{
-A list, or \code{NULL} when the diagnostics could not be computed:
+A list, or \code{NULL} when the diagnostics could not be computed, when
+they do not hold the field the reading needs, or when a cut is not a
+finite number:
 \describe{
 \item{\code{type}}{One of \code{"diffuse-amplified"}, \code{"hierarchical-amplified"},
 \code{"hierarchical-dampened"}, \code{"diffuse-dampened"}.}
 \item{\code{coupling_margin}}{Signed distance from \code{coupling_cut}. Positive is
 amplified.}
-\item{\code{hierarchy_margin}}{Signed distance from \code{hierarchy_cut}. Positive
-is hierarchical.}
+\item{\code{hierarchy_margin}}{Signed distance from \code{hierarchy_cut}, in the
+units of the reading. Positive is hierarchical.}
 \item{\code{nearest_cut}}{Which boundary the system sits closest to, once each
 margin is expressed in units of that axis's corpus spread.}
 \item{\code{nearest_margin_scaled}}{That distance, in corpus interquartile
 ranges. Small means the type is a close call.}
-\item{\code{corpus_share}}{Proportion of the 117 reference systems of this
-type, so a user in an uncommon corner is told so.}
+\item{\code{corpus_share}}{Proportion of the reference corpus of this type,
+so a user in an uncommon corner is told so.}
 \item{\code{corpus_multiplier}}{Median total-to-direct multiplier within the
 type across the corpus.}
 \item{\code{intervention_logic}}{The source paper's wording for this type.}
@@ -42,7 +51,15 @@ type across the corpus.}
 logic is shown.}
 \item{\code{cuts}}{The two cuts actually used, and whether each was the
 default.}
-\item{\code{hierarchy_reading}}{Always \code{"hierarchy_sd"}. See below.}
+\item{\code{hierarchy_reading}}{\code{"hierarchy_h"} or \code{"hierarchy_sd"}: the
+field that was classified on.}
+\item{\code{corpus_n}}{Size of the reference corpus behind \code{corpus_share}:
+81 models under \code{"H"}, 117 systems under \code{"sd"}.}
+\item{\code{hierarchy_direction}}{\code{"high means concentrated"}, which holds
+for both readings.}
+\item{\code{effort}}{A list of \code{uniform_forgoes}, \code{direct_appraisal_forgoes}
+and \code{assumptions}. See below. Both shares are \code{NA} under
+\code{reading = "sd"}.}
 }
 }
 \description{
@@ -50,13 +67,19 @@ Places a diagnosed system on the (coupling, hierarchy) map and returns the
 type, the margin to each cut in that axis's own units, and the intervention
 logic the source paper pairs with the type.
 }
-\section{Only the standard-deviation reading classifies}{
+\section{Two readings classify, and they are not interchangeable}{
 
-The 0.10 cut is calibrated against \code{hierarchy_sd}, and every corpus-level
-result is expressed in it. \code{hierarchy_gini} and \code{hierarchy_pr} measure the
-same idea on different scales -- and the participation ratio runs the
-opposite way -- so a cut of 0.10 means nothing on either. Show all three
-readings by all means; classify on one.
+\code{hierarchy_h} and \code{hierarchy_sd} are tied by \eqn{H = (n - 1)\,
+\mathrm{sd}(u)^2}, so a cut of 0.10 on one is a cut of 0.10 on the other only
+for eleven factors. A larger model can be hierarchical on H and diffuse on
+sd, and a smaller one the reverse. The type returned by 0.7.0 can therefore
+differ from the type 0.6.0 returned for the same matrix. To reproduce a
+0.6.0 type, call \code{structural_type(d, reading = "sd")}.
+
+Each reading is read against its own reference corpus: 81 models for H and
+117 systems for sd. \code{hierarchy_gini} and \code{hierarchy_pr} do not classify.
+They measure the same idea on other scales, and the participation ratio runs
+the opposite way.
 }
 
 \section{The margin is the point}{
@@ -75,12 +98,29 @@ An interface that renders it as an instruction will be read as stronger than
 the evidence. \code{caveat} exists to be shown, not stored.
 }
 
+\section{The effort shares}{
+
+Under \code{reading = "H"} the two cuts have a reading in units of value, inside
+the decision model of the source paper. \code{uniform_forgoes} is the share of the
+value attainable along the dominant mode that effort spread evenly across
+the factors gives up, and it equals \code{hierarchy_h}. \code{direct_appraisal_forgoes}
+is the share given up by appraising an option on its direct effects alone,
+and it equals \code{mu_max^2}, one quarter at the coupling cut. Neither is a
+forecast. \code{assumptions} states the model they hold in, and belongs wherever
+either share is shown.
+}
+
 \examples{
 d <- spectral_diagnostics(worked_matrices$fefo_stock_control)
 s <- structural_type(d)
 s$type
+s$hierarchy_reading
 s$coupling_margin
 s$intervention_logic
+s$effort$uniform_forgoes
+
+# The type that version 0.6.0 returned:
+structural_type(d, reading = "sd")$type
 
 # An uncommon corner is worth knowing about:
 structural_type(spectral_diagnostics(worked_matrices$resilience_capabilities))$corpus_share

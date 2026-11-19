@@ -10,7 +10,9 @@ surrogate_position(
   seed = NULL,
   coupling_cut = STRUCTURE_CUTS$coupling,
   hierarchy_cut = STRUCTURE_CUTS$hierarchy,
-  max_attempts = 50L * B
+  max_attempts = 50L * B,
+  reading = c("H", "sd"),
+  scheme = c("full", "rows")
 )
 }
 \arguments{
@@ -27,14 +29,28 @@ classifying each draw.}
 \item{max_attempts}{Maximum number of shuffles drawn before giving up,
 default \code{50 * B}, passed to \code{\link[=surrogate_ensemble]{surrogate_ensemble()}}. Reaching it yields a
 short ensemble and \code{complete = FALSE} rather than an error.}
+
+\item{reading}{Which hierarchy reading classifies the observation and each
+draw, as in \code{\link[=structural_type]{structural_type()}}: \code{"H"}, the default, or \code{"sd"}, which
+reproduces version 0.6.0. \strong{Both run the same way: high means
+concentrated.} The reading affects \code{type}, \code{type_share} and \code{type_table}
+only. \code{metrics} reports both readings whatever is chosen.}
+
+\item{scheme}{What the shuffle holds fixed, as in \code{\link[=surrogate_ensemble]{surrogate_ensemble()}}:
+\code{"full"}, the default, or \code{"rows"}, which keeps every dispatch total.}
 }
 \value{
 A list, or \code{NULL} when the matrix cannot be diagnosed:
 \describe{
-\item{\code{metrics}}{Data frame, one row per diagnostic, with the observed
-value, the ensemble median, minimum and maximum, \code{share_ge} (the
-proportion of draws at or above the observed value) and \code{outside}
-(\code{TRUE} when the observation falls beyond the whole ensemble).}
+\item{\code{metrics}}{Data frame, one row per diagnostic (\code{mu_max},
+\code{hierarchy_sd}, \code{dominance}, \code{hierarchy_h}), with the observed value,
+the ensemble median, minimum and maximum, \code{share_ge} (the proportion
+of draws at or above the observed value), \code{outside} (\code{TRUE} when the
+observation falls beyond the whole ensemble), the ensemble \code{mean} and
+standard deviation \code{sd}, and \code{z}, the observed value less the mean in
+units of that standard deviation. \code{z} is \code{NA} when the ensemble does
+not vary or holds a single draw. Both hierarchy rows are \strong{high when
+influence is concentrated}.}
 \item{\code{type}}{The observed structural type.}
 \item{\code{type_share}}{Proportion of surrogate draws that produce the same
 type. High means the type follows from the rating distribution rather
@@ -44,21 +60,19 @@ than from the structure the analyst built.}
 \item{\code{requested}}{Ensemble size asked for.}
 \item{\code{complete}}{\code{TRUE} when \code{B} reached \code{requested}.}
 \item{\code{attempts}}{Shuffles drawn, accepted and rejected together.}
+\item{\code{hierarchy_reading}}{\code{"hierarchy_h"} or \code{"hierarchy_sd"}: the
+field the types were read on.}
+\item{\code{scheme}}{The shuffle that produced the ensemble.}
 }
 
 Returns \code{NULL} when the matrix is inadmissible, when it is not irreducible,
 or when no shuffle of it was admissible.
 }
 \description{
-Shuffles the off-diagonal entries, holding the number of factors, the density
-and the exact multiset of values fixed, and asks where the real system falls
-in the resulting null. A diagnosis is worth less if the same numbers would
-arise from the rating distribution on its own.
-}
-\details{
-This is the comparison the source paper could not run across its corpus,
-because the precomputed spectral file holds no raw matrices. A user of this
-package has their own matrix, so they can.
+Shuffles the off-diagonal entries under one of the two schemes of
+\code{\link[=surrogate_ensemble]{surrogate_ensemble()}} and asks where the real system falls in the resulting
+null. A diagnosis is worth less if the same numbers would arise from the
+ratings on their own.
 }
 \section{Read \code{complete} before quoting a share}{
 
@@ -76,10 +90,27 @@ the shuffle reproduces the observation, so that diagnostic says more about
 how the ratings were distributed than about how the factors were connected.
 }
 
+\section{Reading \code{z}}{
+
+\code{z} measures the same distance on a scale that does not saturate. Once an
+observation lies beyond every draw, \code{share_ge} is 0 or 1 whatever the
+distance, while \code{z} still says how far. It is a standardised distance and
+not a test statistic: the ensemble of a diagnostic bounded at zero is often
+skewed, so a normal reading of \code{z} is not offered.
+}
+
+\section{A matrix that is not strongly connected}{
+
+This function returns \code{NULL} for it, because every draw is required to be
+strongly connected and the observation is not. The source paper takes the
+other route for such a model and admits draws that are not strongly
+connected. The two treatments are not comparable.
+}
+
 \section{\code{type_share} is weak evidence for a common type}{
 
-Nearly 70\% of the reference corpus is diffuse-amplified, so a shuffled matrix
-usually lands there too. A \code{type_share} near 1 for a common type therefore
+About 70\% of either reference corpus is diffuse-amplified, so a shuffled
+matrix usually lands there too. A \code{type_share} near 1 for a common type therefore
 means very little -- it says the null also produces that type, not that the
 observation is unremarkable. The per-metric positions are the informative
 part. \code{type_share} earns its keep when the observed type is an uncommon one,

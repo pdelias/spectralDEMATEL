@@ -50,6 +50,12 @@
 #'       direction to the other two.}
 #'     \item{`hierarchy_gini`}{Hierarchy as the Gini coefficient of the same
 #'       vector. **HIGH means concentrated.** Size-free.}
+#'     \item{`hierarchy_h`}{Hierarchy as \eqn{H = 1 - N_{eff}/n}, with
+#'       \eqn{N_{eff} = (\sum u_i)^2 / \sum u_i^2} the effective number of
+#'       factors. In \eqn{[0, 1 - 1/n)}. **HIGH means concentrated.**
+#'       Size-normalised: a model with every factor split into copies keeps
+#'       its value. This is the reading [structural_type()] classifies on by
+#'       default.}
 #'     \item{`entry_points`}{Right eigenvector, unit 2-norm. Weights each factor
 #'       by the influence it injects: where to apply pressure.}
 #'     \item{`accumulation`}{Left eigenvector, unit 2-norm. Weights each factor
@@ -74,17 +80,21 @@
 #' before. When one moves again, old diagnoses must remain interpretable rather
 #' than silently mean something new.
 #'
-#' @section The three hierarchy readings run in different directions:
-#' `hierarchy_sd` and `hierarchy_gini` are high when influence enters at a few
-#' factors. `hierarchy_pr` is **low** when influence enters at a few factors.
+#' @section The four hierarchy readings run in different directions:
+#' `hierarchy_h`, `hierarchy_sd` and `hierarchy_gini` are high when influence
+#' enters at a few factors. `hierarchy_pr` is **low** when influence enters at
+#' a few factors.
 #' This project has inverted the direction once already, in code that had been
 #' reviewed, and the mistake produced entirely plausible output. Anything
 #' displaying one of these must state which reading it used and which way it
 #' runs.
 #'
-#' `hierarchy_sd` is the reading the source paper's corpus analysis uses
-#' throughout, so it is the one behind every corpus-level result including the
-#' coupling-hierarchy trade-off.
+#' `hierarchy_h` and `hierarchy_sd` are tied by an identity. For the unit-length
+#' entry profile, \eqn{H = (n - 1)\,\mathrm{sd}(u)^2}. The two therefore order
+#' models of the same size identically and differ across sizes. The revised
+#' source paper classifies on `hierarchy_h`. Its first version, and this package
+#' up to 0.6.0, classified on `hierarchy_sd`, which remains available through
+#' `reading = "sd"` in [structural_type()].
 #'
 #' @section Mode dominance uses the largest modulus:
 #' \eqn{\lambda_2} is the largest-modulus eigenvalue below the dominant one, not
@@ -175,6 +185,9 @@ diagnostics_core <- function(A, type) {
     hierarchy_sd      = stats::sd(u),                 # SD of u (n-1 denom); HIGH = concentrated
     hierarchy_pr      = (sum(u^2)^2 / sum(u^4)) / n,  # participation ratio / n, in (0,1]; LOW = concentrated
     hierarchy_gini    = gini(u),                      # size-free; HIGH = concentrated
+    # H = 1 - Neff / n with Neff = (sum u)^2 / sum u^2, as hierarchy_H in the
+    # paper's R/baseline/spectral_baseline.R. Size-normalised. HIGH = concentrated.
+    hierarchy_h       = 1 - sum(u)^2 / (n * sum(u^2)),
     entry_points      = u,                            # right eigenvector: where to inject pressure
     accumulation      = v,                            # left eigenvector: where effects land
     ev_condition      = 1 / abs(sum(v * u))           # reliability of sensitivity estimates (>= 1)
@@ -197,6 +210,7 @@ na_diagnostics <- function(A) {
     hierarchy_sd      = NA_real_,
     hierarchy_pr      = NA_real_,
     hierarchy_gini    = NA_real_,
+    hierarchy_h       = NA_real_,
     entry_points      = vec,
     accumulation      = vec,
     ev_condition      = NA_real_

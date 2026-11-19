@@ -7,14 +7,10 @@
 
 #' Where the observed diagnostics sit in their own surrogate ensemble
 #'
-#' Shuffles the off-diagonal entries, holding the number of factors, the density
-#' and the exact multiset of values fixed, and asks where the real system falls
-#' in the resulting null. A diagnosis is worth less if the same numbers would
-#' arise from the rating distribution on its own.
-#'
-#' This is the comparison the source paper could not run across its corpus,
-#' because the precomputed spectral file holds no raw matrices. A user of this
-#' package has their own matrix, so they can.
+#' Shuffles the off-diagonal entries under one of the two schemes of
+#' [surrogate_ensemble()] and asks where the real system falls in the resulting
+#' null. A diagnosis is worth less if the same numbers would arise from the
+#' ratings on their own.
 #'
 #' @param A A square, non-negative numeric matrix of direct influences.
 #' @param B Ensemble size. 200 is the paper's figure; lower it when a person is
@@ -22,13 +18,25 @@
 #' @param seed Optional integer, so a figure in a paper can be reproduced.
 #' @param coupling_cut,hierarchy_cut Passed to [structural_type()] when
 #'   classifying each draw.
+#' @param reading Which hierarchy reading classifies the observation and each
+#'   draw, as in [structural_type()]: `"H"`, the default, or `"sd"`, which
+#'   reproduces version 0.6.0. **Both run the same way: high means
+#'   concentrated.** The reading affects `type`, `type_share` and `type_table`
+#'   only. `metrics` reports both readings whatever is chosen.
+#' @param scheme What the shuffle holds fixed, as in [surrogate_ensemble()]:
+#'   `"full"`, the default, or `"rows"`, which keeps every dispatch total.
 #'
 #' @return A list, or `NULL` when the matrix cannot be diagnosed:
 #'   \describe{
-#'     \item{`metrics`}{Data frame, one row per diagnostic, with the observed
-#'       value, the ensemble median, minimum and maximum, `share_ge` (the
-#'       proportion of draws at or above the observed value) and `outside`
-#'       (`TRUE` when the observation falls beyond the whole ensemble).}
+#'     \item{`metrics`}{Data frame, one row per diagnostic (`mu_max`,
+#'       `hierarchy_sd`, `dominance`, `hierarchy_h`), with the observed value,
+#'       the ensemble median, minimum and maximum, `share_ge` (the proportion
+#'       of draws at or above the observed value), `outside` (`TRUE` when the
+#'       observation falls beyond the whole ensemble), the ensemble `mean` and
+#'       standard deviation `sd`, and `z`, the observed value less the mean in
+#'       units of that standard deviation. `z` is `NA` when the ensemble does
+#'       not vary or holds a single draw. Both hierarchy rows are **high when
+#'       influence is concentrated**.}
 #'     \item{`type`}{The observed structural type.}
 #'     \item{`type_share`}{Proportion of surrogate draws that produce the same
 #'       type. High means the type follows from the rating distribution rather
@@ -38,6 +46,9 @@
 #'     \item{`requested`}{Ensemble size asked for.}
 #'     \item{`complete`}{`TRUE` when `B` reached `requested`.}
 #'     \item{`attempts`}{Shuffles drawn, accepted and rejected together.}
+#'     \item{`hierarchy_reading`}{`"hierarchy_h"` or `"hierarchy_sd"`: the
+#'       field the types were read on.}
+#'     \item{`scheme`}{The shuffle that produced the ensemble.}
 #'   }
 #'
 #'   Returns `NULL` when the matrix is inadmissible, when it is not irreducible,
@@ -55,9 +66,22 @@
 #' the shuffle reproduces the observation, so that diagnostic says more about
 #' how the ratings were distributed than about how the factors were connected.
 #'
+#' @section Reading `z`:
+#' `z` measures the same distance on a scale that does not saturate. Once an
+#' observation lies beyond every draw, `share_ge` is 0 or 1 whatever the
+#' distance, while `z` still says how far. It is a standardised distance and
+#' not a test statistic: the ensemble of a diagnostic bounded at zero is often
+#' skewed, so a normal reading of `z` is not offered.
+#'
+#' @section A matrix that is not strongly connected:
+#' This function returns `NULL` for it, because every draw is required to be
+#' strongly connected and the observation is not. The source paper takes the
+#' other route for such a model and admits draws that are not strongly
+#' connected. The two treatments are not comparable.
+#'
 #' @section `type_share` is weak evidence for a common type:
-#' Nearly 70% of the reference corpus is diffuse-amplified, so a shuffled matrix
-#' usually lands there too. A `type_share` near 1 for a common type therefore
+#' About 70% of either reference corpus is diffuse-amplified, so a shuffled
+#' matrix usually lands there too. A `type_share` near 1 for a common type therefore
 #' means very little -- it says the null also produces that type, not that the
 #' observation is unremarkable. The per-metric positions are the informative
 #' part. `type_share` earns its keep when the observed type is an uncommon one,
@@ -78,19 +102,34 @@
 surrogate_position <- function(A, B = 200, seed = NULL,
                                coupling_cut  = STRUCTURE_CUTS$coupling,
                                hierarchy_cut = STRUCTURE_CUTS$hierarchy,
-                               max_attempts  = 50L * B) {
+                               max_attempts  = 50L * B,
+                               reading = c("H", "sd"),
+                               scheme = c("full", "rows")) {
+  reading <- match.arg(reading)
+  scheme <- match.arg(scheme)
+  field <- reading_field(reading)
+  if (!can_shuffle(A)) return(NULL)
   obs <- spectral_diagnostics(A, checks = FALSE)
   if (is.null(obs)) return(NULL)
   if (!is_irreducible(A)) return(NULL)
+  obs_type <- structural_type(obs, coupling_cut, hierarchy_cut, reading)$type
+  if (is.null(obs_type)) return(NULL)
 
-  ens <- surrogate_ensemble(A, B = B, seed = seed, max_attempts = max_attempts)
+  ens <- surrogate_ensemble(A, B = B, seed = seed, max_attempts = max_attempts,
+                            scheme = scheme)
   # No admissible shuffle at all. There is no null distribution to sit in, so
   # there is nothing to report -- same answer shape as an inadmissible matrix.
   if (is.null(ens)) return(NULL)
 
-  quantities <- c("mu_max", "hierarchy_sd", "dominance")
+  # The three rows of 0.6.0 first and in their order, then H.
+  quantities <- c("mu_max", "hierarchy_sd", "dominance", "hierarchy_h")
   metrics <- do.call(rbind, lapply(quantities, function(q) {
     e <- ens[[q]]
+    # Mean, standard deviation and z as compare_to_null() in the paper's
+    # R/baseline/spectral_baseline.R: z is undefined, and returned as NA, when
+    # the ensemble does not vary.
+    m <- mean(e)
+    s <- if (length(e) > 1L) stats::sd(e) else NA_real_
     data.frame(
       metric   = q,
       observed = obs[[q]],
@@ -99,14 +138,17 @@ surrogate_position <- function(A, B = 200, seed = NULL,
       max      = max(e),
       share_ge = mean(e >= obs[[q]]),
       outside  = obs[[q]] < min(e) || obs[[q]] > max(e),
+      mean     = m,
+      sd       = s,
+      z        = if (is.finite(s) && s > 0) (obs[[q]] - m) / s else NA_real_,
       stringsAsFactors = FALSE)
   }))
   rownames(metrics) <- NULL
 
-  obs_type <- structural_type(obs, coupling_cut, hierarchy_cut)$type
   draw_types <- vapply(seq_len(nrow(ens)), function(i) {
-    structural_type(list(mu_max = ens$mu_max[i], hierarchy_sd = ens$hierarchy_sd[i]),
-                    coupling_cut, hierarchy_cut)$type
+    structural_type(list(mu_max = ens$mu_max[i], hierarchy_sd = ens$hierarchy_sd[i],
+                         hierarchy_h = ens$hierarchy_h[i]),
+                    coupling_cut, hierarchy_cut, reading)$type
   }, character(1))
 
   list(
@@ -120,7 +162,9 @@ surrogate_position <- function(A, B = 200, seed = NULL,
     # same claim, and nothing downstream can tell them apart from `B` alone.
     requested  = B,
     complete   = isTRUE(attr(ens, "complete")),
-    attempts   = attr(ens, "attempts")
+    attempts   = attr(ens, "attempts"),
+    hierarchy_reading = field,
+    scheme     = scheme
   )
 }
 
@@ -140,11 +184,15 @@ surrogate_position <- function(A, B = 200, seed = NULL,
 #' @param perturb Which entries to disturb. `"nonzero"`, the default, leaves
 #'   recorded zeros alone; `"all"` disturbs every off-diagonal entry.
 #' @param coupling_cut,hierarchy_cut Passed to [structural_type()].
+#' @param reading Which hierarchy reading classifies, as in [structural_type()]:
+#'   `"H"`, the default, or `"sd"`, which reproduces version 0.6.0. **Both run
+#'   the same way: high means concentrated.**
 #'
 #' @return A list, or `NULL` when the matrix cannot be diagnosed:
 #'   `observed_type`, `share_same` (proportion of perturbed matrices keeping
 #'   that type), `type_table`, `B_admissible` (draws that could be diagnosed at
-#'   all), `tolerance` and `perturb`.
+#'   all), `tolerance`, `perturb` and `hierarchy_reading` (`"hierarchy_h"` or
+#'   `"hierarchy_sd"`).
 #'
 #' @section Why recorded zeros are left alone by default:
 #' A rating of zero is a judgement that there is no influence between two
@@ -166,11 +214,15 @@ surrogate_position <- function(A, B = 200, seed = NULL,
 measurement_stability <- function(A, tolerance = 0.5, B = 200, seed = NULL,
                                   perturb = c("nonzero", "all"),
                                   coupling_cut  = STRUCTURE_CUTS$coupling,
-                                  hierarchy_cut = STRUCTURE_CUTS$hierarchy) {
+                                  hierarchy_cut = STRUCTURE_CUTS$hierarchy,
+                                  reading = c("H", "sd")) {
   perturb <- match.arg(perturb)
+  reading <- match.arg(reading)
+  if (!is_number(tolerance) || tolerance < 0 || !is_count(B)) return(NULL)
   obs <- spectral_diagnostics(A, checks = FALSE)
   if (is.null(obs)) return(NULL)
-  observed_type <- structural_type(obs, coupling_cut, hierarchy_cut)$type
+  observed_type <- structural_type(obs, coupling_cut, hierarchy_cut, reading)$type
+  if (is.null(observed_type)) return(NULL)
 
   if (!is.null(seed)) set.seed(seed)
 
@@ -186,7 +238,7 @@ measurement_stability <- function(A, tolerance = 0.5, B = 200, seed = NULL,
     P[targets] <- pmin(pmax(P[targets] + noise, 0), ceiling_value)
     d <- spectral_diagnostics(P, checks = FALSE)
     if (is.null(d)) next
-    st <- structural_type(d, coupling_cut, hierarchy_cut)
+    st <- structural_type(d, coupling_cut, hierarchy_cut, reading)
     if (is.null(st)) next
     types <- c(types, st$type)
   }
@@ -197,6 +249,7 @@ measurement_stability <- function(A, tolerance = 0.5, B = 200, seed = NULL,
     type_table    = table(types),
     B_admissible  = length(types),
     tolerance     = tolerance,
-    perturb       = perturb
+    perturb       = perturb,
+    hierarchy_reading = reading_field(reading)
   )
 }
